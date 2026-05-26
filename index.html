@@ -236,7 +236,18 @@ let editIdx=-1;
 // === 初始化 ===
 function init(){
   const s=localStorage.getItem('vmt_data');
-  if(s){try{const d=JSON.parse(s);custs=d.c||[];supps=d.s||[];accts=d.a||[];showDone();return}catch(e){}}
+  if(s){
+    try{
+      const d=JSON.parse(s);
+      const lsCusts=d.c||[],lsSupps=d.s||[],lsAccts=d.a||[];
+      // 如果localStorage数据比嵌入数据少，说明有更新，强制用嵌入数据
+      if(lsCusts.length<E_CUST.length||lsSupps.length<E_SUPP.length){
+        console.log('检测到新版本数据，更新缓存: 客户'+lsCusts.length+'->'+E_CUST.length+', 供应商'+lsSupps.length+'->'+E_SUPP.length);
+        loadEmbed();
+        return;
+      }
+      custs=lsCusts;supps=lsSupps;accts=lsAccts;showDone();return;
+    }catch(e){}}
   loadEmbed();
 }
 function loadEmbed(){custs=[...E_CUST];supps=[...E_SUPP];accts=[...E_ACCT];saveL();showDone();}
