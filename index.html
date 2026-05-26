@@ -615,7 +615,56 @@ function doExport(){
   const rows=[];let vn=1;
   for(let r of recs){
     const dt=r.date;
-    const smr=dt.substring(0,4)+'.'+dt.substring(4,6)+'.'+dt.substring(6,8)+bkN+(isR?'收':'付')+(r.mName||r.summary.substring(0,12))+r.amount+'元';
+    // 生成摘要：xxxx年xx月xx日xx账户收到/付给xxxxxx货款xxxx元
+    const yr=dt.substring(0,4),mn=dt.substring(4,6),dy=dt.substring(6,8);
+    const action=isR?'收到':'付给';
+    // 对方名称：优先用匹配名，否则从摘要提取
+    let party=r.mName||'';
+    if(!party){
+      // 从摘要提取客户名（去掉抹零、运费等）
+      party=r.summary;
+    }
+    // 清理名称：去掉括号内的抹零/退货/运费等信息
+    party=party.replace(/[（(][^）)]*[)）]/g,'');
+    party=party.replace(/抹零[^元]*/g,'');
+    party=party.replace(/运费[^元]*/g,'');
+    party=party.replace(/退货[^元]*/g,'');
+    party=party.replace(/退[款货]/g,'');
+    party=party.replace(/优惠.*/g,'');
+    party=party.replace(/差价.*/g,'');
+    party=party.replace(/多付.*/g,'');
+    party=party.replace(/先付.*/g,'');
+    party=party.replace(/暂时.*/g,'');
+    party=party.replace(/下次.*/g,'');
+    party=party.replace(/记得.*/g,'');
+    party=party.replace(/减\d+个.*/g,'');
+    party=party.replace(/业务员优惠.*/g,'');
+    party=party.replace(/漏发.*/g,'');
+    party=party.replace(/路锥坏.*/g,'');
+    party=party.replace(/手套优惠.*/g,'');
+    party=party.replace(/灭火器箱.*/g,'');
+    party=party.replace(/扣\d+元.*/g,'');
+    party=party.replace(/减\d+元.*/g,'');
+    party=party.replace(/破损.*/g,'');
+    // 去掉业务员前缀
+    for(let s of SALESMEN)party=party.replace(s,'');
+    // 去掉多余空格
+    party=party.replace(/\s+/g,'').trim();
+    // 业务类型
+    let bizType='货款';
+    if(r.isNS){
+      if(r.acctN.includes('罚款'))bizType='罚款';
+      else if(r.acctN.includes('工资'))bizType='工资';
+      else if(r.acctN.includes('借款'))bizType='还款';
+      else if(r.acctN.includes('手续费'))bizType='手续费';
+      else if(r.acctN.includes('利息'))bizType='利息';
+      else if(r.acctN.includes('押金'))bizType='押金';
+      else if(r.acctN.includes('其他收入'))bizType='其他收入';
+      else if(r.acctN.includes('折扣'))bizType='折扣';
+      else if(r.acctN.includes('应付'))bizType='退款';
+      else bizType='其他';
+    }
+    const smr=yr+'年'+mn+'月'+dy+'日'+bkN+action+party+bizType+r.amount+'元';
     const smrS=smr.substring(0,60);
     
     // 借方行
