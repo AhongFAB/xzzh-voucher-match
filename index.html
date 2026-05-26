@@ -63,14 +63,14 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 .footer{text-align:center;padding:14px;color:var(--text-sec);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
 .pbar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}.pbar .fill{height:100%;border-radius:3px;transition:width .3s;background:var(--success)}
 .acct-sel{min-width:160px}.cust-sel{min-width:200px;max-width:300px;position:relative}
-.cust-inp{width:100%;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:#fff}
+.cust-inp{width:100%;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:#fff;min-width:200px}
 .cust-inp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
-.cust-dd{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:200px;overflow-y:auto;z-index:50;display:none}
+.cust-dd{position:absolute;top:100%;left:0;min-width:420px;max-width:600px;background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:240px;overflow-y:auto;z-index:50;display:none}
 .cust-dd.show{display:block}
 .cust-dd-item{padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:6px}
 .cust-dd-item:hover{background:var(--primary-bg)}
-.cust-dd-item .code{color:var(--primary);font-weight:600;min-width:70px;font-family:monospace}
-.cust-dd-item .name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cust-dd-item .code{color:var(--primary);font-weight:600;min-width:80px;font-family:monospace;flex-shrink:0}
+.cust-dd-item .name{color:var(--text);white-space:normal;word-break:break-all;line-height:1.4}
 .cust-dd-empty{padding:8px;text-align:center;color:var(--text-sec);font-size:11px}
 .search-inp{width:180px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px}.search-inp:focus{outline:none;border-color:var(--primary)}
 .hidden{display:none!important}
@@ -495,7 +495,7 @@ function render(){
     h+='<td class="amount">'+r.amount.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>';
     h+='<td><span class="badge '+bc+'">'+bt+'</span>'+((r.conf>0&&r.conf<100)?'<br><span style="font-size:9px;color:var(--text-sec)">'+r.conf+'%</span>':'')+'</td>';
     h+='<td><select class="acct-sel" onchange="chgAcct('+r.id+',this.value)">'+ACCTS.map(a=>'<option value="'+a.c+'"'+(a.c===r.acctC?' selected':'')+'>'+a.c+' '+a.n+'</option>').join('')+'</select></td>';
-    const curDisp=r.mCode?r.mCode+' '+(r.mName||'').substring(0,15):'';
+    const curDisp=r.mCode?r.mCode+' '+(r.mName||''):'';
     h+='<td class="cust-sel"><input class="cust-inp" value="'+esc(curDisp)+'" placeholder="输入搜索..." onfocus="showAC('+r.id+',this)" oninput="filterAC('+r.id+',this)" onblur="hideAC('+r.id+')"><div class="cust-dd" id="dd_'+r.id+'"></div></td>';
     h+='<td style="font-family:monospace;font-size:10px">'+(r.mCode||'-')+'</td>';
     h+='<td><button class="btn btn-o btn-sm" onclick="openAdd('+r.id+')" title="新增">➕</button></td></tr>';
