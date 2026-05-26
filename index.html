@@ -62,7 +62,16 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 .fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:500;margin-bottom:3px;color:var(--text-sec)}.fg input,.fg select{width:100%;max-width:100%;padding:6px 10px}
 .footer{text-align:center;padding:14px;color:var(--text-sec);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
 .pbar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}.pbar .fill{height:100%;border-radius:3px;transition:width .3s;background:var(--success)}
-.acct-sel{min-width:160px}.cust-sel{min-width:180px;max-width:280px}
+.acct-sel{min-width:160px}.cust-sel{min-width:200px;max-width:300px;position:relative}
+.cust-inp{width:100%;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:#fff}
+.cust-inp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.cust-dd{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:200px;overflow-y:auto;z-index:50;display:none}
+.cust-dd.show{display:block}
+.cust-dd-item{padding:4px 8px;font-size:11px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:6px}
+.cust-dd-item:hover{background:var(--primary-bg)}
+.cust-dd-item .code{color:var(--primary);font-weight:600;min-width:70px;font-family:monospace}
+.cust-dd-item .name{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cust-dd-empty{padding:8px;text-align:center;color:var(--text-sec);font-size:11px}
 .search-inp{width:180px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px}.search-inp:focus{outline:none;border-color:var(--primary)}
 .hidden{display:none!important}
 </style>
@@ -464,9 +473,8 @@ function render(){
     h+='<td class="amount">'+r.amount.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>';
     h+='<td><span class="badge '+bc+'">'+bt+'</span>'+((r.conf>0&&r.conf<100)?'<br><span style="font-size:9px;color:var(--text-sec)">'+r.conf+'%</span>':'')+'</td>';
     h+='<td><select class="acct-sel" onchange="chgAcct('+r.id+',this.value)">'+ACCTS.map(a=>'<option value="'+a.c+'"'+(a.c===r.acctC?' selected':'')+'>'+a.c+' '+a.n+'</option>').join('')+'</select></td>';
-    h+='<td><select class="cust-sel" onchange="chgMatch('+r.id+',this.value)"><option value="">-- 选择 --</option>';
-    for(let it of selList){h+='<option value="'+it.code+'"'+(it.code===r.mCode?' selected':'')+'>'+it.code+' '+it.name.substring(0,22)+'</option>'}
-    h+='</select></td>';
+    const curDisp=r.mCode?r.mCode+' '+(r.mName||'').substring(0,15):'';
+    h+='<td class="cust-sel"><input class="cust-inp" value="'+esc(curDisp)+'" placeholder="输入搜索..." onfocus="showAC('+r.id+',this)" oninput="filterAC('+r.id+',this)" onblur="hideAC('+r.id+')"><div class="cust-dd" id="dd_'+r.id+'"></div></td>';
     h+='<td style="font-family:monospace;font-size:10px">'+(r.mCode||'-')+'</td>';
     h+='<td><button class="btn btn-o btn-sm" onclick="openAdd('+r.id+')" title="新增">➕</button></td></tr>';
   }
@@ -554,6 +562,44 @@ function doExport(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'sheet1（名称勿改）');
   XLSX.writeFile(wb,'凭证导入_'+(isR?'收款':'付款')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+
+// === Autocomplete ===
+let acTimer=null;
+function showAC(id,inp){
+  filterAC(id,inp);
+}
+function hideAC(id){
+  setTimeout(()=>{const dd=document.getElementById('dd_'+id);if(dd)dd.classList.remove('show')},200);
+}
+function filterAC(id,inp){
+  const q=inp.value.trim().toLowerCase();
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  const list=r.mTarget==='supplier'?supps:custs;
+  let filtered=list;
+  if(q){
+    filtered=list.filter(it=>{
+      const t=(it.code+' '+it.name).toLowerCase();
+      // 手机号也搜索
+      const phones=it.phones||[];
+      return t.includes(q)||phones.some(p=>p.includes(q));
+    });
+  }
+  // 最多显示50条
+  filtered=filtered.slice(0,50);
+  const dd=document.getElementById('dd_'+id);if(!dd)return;
+  if(filtered.length===0){
+    dd.innerHTML='<div class="cust-dd-empty">无匹配结果 <button class="btn btn-o btn-sm" onclick="openAdd('+id+')">➕新增</button></div>';
+  }else{
+    dd.innerHTML=filtered.map(it=>'<div class="cust-dd-item" onmousedown="pickAC('+id+',\''+it.code+'\',\''+esc(it.name).replace(/'/g,"\\'")+'\')"><span class="code">'+it.code+'</span><span class="name">'+esc(it.name)+'</span></div>').join('');
+  }
+  dd.classList.add('show');
+}
+function pickAC(id,code,name){
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  r.mCode=code;r.mName=name;r.mType='manual';r.conf=100;
+  updStats();render();
 }
 
 init();
