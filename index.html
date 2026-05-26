@@ -390,27 +390,30 @@ function handleAcctFile(file){
 }
 
 function buildAcctDropdowns(){
-  // Bank account dropdown - bank + cash + other monetary sub-accounts
+  // Bank/cash account dropdown for 凭证配置 - all bank + cash + monetary sub-accounts
   const bankSel=document.getElementById('bankAcct');
   bankSel.innerHTML='';
-  accts.filter(a=>a.is_bank).forEach(a=>{
+  // All bank accounts (1002 + sub-accounts)
+  accts.filter(a=>a.is_bank||a.code==='1002').forEach(a=>{
     const opt=document.createElement('option');
     opt.value=a.code;opt.textContent=a.code+' '+a.name;
     bankSel.appendChild(opt);
   });
+  // Cash (1001)
   accts.filter(a=>a.is_cash&&a.code!=='1002').forEach(a=>{
     const opt=document.createElement('option');
     opt.value=a.code;opt.textContent=a.code+' '+a.name;
     bankSel.appendChild(opt);
   });
+  // Other monetary sub-accounts (1009xx)
   accts.filter(a=>a.code.startsWith('1009')&&a.code!=='1009').forEach(a=>{
     const opt=document.createElement('option');
     opt.value=a.code;opt.textContent=a.code+' '+a.name;
     bankSel.appendChild(opt);
   });
 
-  // ACCTS dropdown for 对方科目 - all non-bank/cash parent accounts + non-bank/cash leaf accounts
-  ACCTS=accts.filter(a=>!a.is_bank&&a.code!=='1002'&&a.code!=='1009').map(a=>({
+  // ACCTS dropdown for 对方科目 - ALL accounts (including bank/cash for internal transfers)
+  ACCTS=accts.map(a=>({
     c:a.code,
     n:a.name,
     aux:a.assist_type
