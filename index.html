@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出纳凭证匹配工具 - 中合五金</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--primary:#2563eb;--primary-light:#3b82f6;--primary-bg:#eff6ff;--bg:#f1f5f9;--card:#ffffff;--border:#e2e8f0;--text:#1e293b;--text-sec:#64748b;--success:#16a34a;--success-bg:#f0fdf4;--warning:#d97706;--warning-bg:#fffbeb;--danger:#dc2626;--danger-bg:#fef2f2;--radius:8px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.header{background:linear-gradient(135deg,var(--primary),#1d4ed8);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);position:sticky;top:0;z-index:100}
+.header h1{font-size:17px;font-weight:600}
+.header-stats{display:flex;gap:12px;font-size:12px}
+.header-stats span{background:rgba(255,255,255,.15);padding:3px 10px;border-radius:16px}
+.container{max-width:1400px;margin:0 auto;padding:16px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:14px}
+.card-hd{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-hd h2{font-size:14px;font-weight:600}
+.card-bd{padding:16px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-zone:hover{border-color:var(--primary);background:var(--primary-bg)}
+.upload-zone.active{border-color:var(--primary);background:var(--primary-bg)}
+.upload-zone p{color:var(--text-sec);font-size:13px;margin-top:6px}
+.upload-zone .icon{font-size:28px;color:var(--primary)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:500;border:none;cursor:pointer;transition:all .2s}
+.btn-p{background:var(--primary);color:#fff}.btn-p:hover{background:#1d4ed8}.btn-p:disabled{background:#93c5fd;cursor:not-allowed}
+.btn-s{background:var(--success);color:#fff}.btn-s:hover{background:#15803d}
+.btn-w{background:var(--warning);color:#fff}
+.btn-d{background:var(--danger);color:#fff}
+.btn-o{background:transparent;color:var(--primary);border:1px solid var(--primary)}.btn-o:hover{background:var(--primary-bg)}
+.btn-sm{padding:3px 8px;font-size:11px}
+.stats-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
+.stat-item .num{font-size:22px;font-weight:700;color:var(--primary)}.stat-item .label{font-size:11px;color:var(--text-sec)}
+.stat-item.ok .num{color:var(--success)}.stat-item.warn .num{color:var(--warning)}.stat-item.err .num{color:var(--danger)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#f8fafc;border-bottom:2px solid var(--border);padding:7px 8px;text-align:left;font-weight:600;white-space:nowrap;color:var(--text-sec);font-size:11px}
+td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:#f8fafc}
+tr.matched td{background:var(--success-bg)}
+tr.unmatched td{background:var(--warning-bg)}
+tr.manual td{background:#eff6ff}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.badge.auto{background:#dcfce7;color:#16a34a}.badge.manual{background:#dbeafe;color:#2563eb}.badge.none{background:#fef3c7;color:#d97706}
+select,input[type=text]{border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:11px}
+select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.amount{font-family:"SF Mono",Monaco,monospace;text-align:right;font-weight:500}
+.date-cell{white-space:nowrap}
+.filter-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.fbtn{padding:3px 10px;border-radius:14px;font-size:11px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .2s}
+.fbtn.on{background:var(--primary);color:#fff;border-color:var(--primary)}.fbtn:hover{border-color:var(--primary)}
+.pagination{display:flex;gap:3px;align-items:center;justify-content:center;margin-top:10px}
+.pagination button{padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--card);cursor:pointer;font-size:11px}
+.pagination button.active{background:var(--primary);color:#fff;border-color:var(--primary)}.pagination button:disabled{opacity:.4;cursor:not-allowed}
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--card);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:90%;max-width:500px;max-height:80vh;overflow-y:auto}
+.modal-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-hd h3{font-size:15px;font-weight:600}.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-sec)}
+.modal-bd{padding:18px}
+.fg{margin-bottom:14px}.fg label{display:block;font-size:12px;font-weight:500;margin-bottom:3px;color:var(--text-sec)}.fg input,.fg select{width:100%;max-width:100%;padding:6px 10px}
+.footer{text-align:center;padding:14px;color:var(--text-sec);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
+.pbar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}.pbar .fill{height:100%;border-radius:3px;transition:width .3s;background:var(--success)}
+.acct-sel{min-width:160px}.cust-sel{min-width:180px;max-width:280px}
+.search-inp{width:180px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px}.search-inp:focus{outline:none;border-color:var(--primary)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>📋 出纳凭证匹配工具</h1>
+<div class="header-stats" id="hStats">
+<span id="sCust">客户:--</span><span id="sSupp">供应商:--</span><span id="sAcct">科目:--</span>
+</div>
+</div>
+<div class="container">
+<!-- 初始化区 -->
+<div class="card" id="initCard">
+<div class="card-hd"><h2>🔧 基础数据</h2><div id="initSt"></div></div>
+<div class="card-bd" id="initBd">
+<div id="initUpload">
+<p style="margin-bottom:10px;color:var(--text-sec);font-size:13px">上传金蝶财务初始数据文件（5个xls），客户/供应商/科目将保存到浏览器，下次无需重新上传</p>
+<div class="upload-zone" id="initZone"><div class="icon">📁</div><p>点击或拖拽上传金蝶财务初始数据文件（支持多选）</p><input type="file" id="initFI" multiple accept=".xls,.xlsx" style="display:none"></div>
+</div>
+<div id="initDone" class="hidden">
+<div style="display:flex;align-items:center;gap:10px;color:var(--success)"><span style="font-size:20px">✅</span><div><div style="font-weight:600">基础数据已加载</div><div style="font-size:12px;color:var(--text-sec)" id="initInfo"></div></div></div>
+<div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="resetInit()">重新上传</button></div>
+</div>
+</div>
+</div>
+<!-- 工作区 -->
+<div id="workArea" class="hidden">
+<div class="card">
+<div class="card-hd"><h2>📤 上传银行收入/支出明细</h2></div>
+<div class="card-bd">
+<div class="upload-zone" id="detZone"><div class="icon">💳</div><p>点击或拖拽上传银行明细表（3列：日期、摘要、金额）</p><input type="file" id="detFI" accept=".xls,.xlsx" style="display:none"></div>
+<div id="detInfo" class="hidden" style="margin-top:10px;display:flex;align-items:center;gap:8px"><span>✅</span><span id="detFN"></span><button class="btn btn-o btn-sm" onclick="clearDet()">清除</button></div>
+</div>
+</div>
+<div class="card" id="cfgCard" style="display:none">
+<div class="card-hd"><h2>⚙️ 凭证配置</h2></div>
+<div class="card-bd">
+<div style="display:flex;gap:20px;flex-wrap:wrap">
+<div class="fg" style="margin:0"><label>凭证类型</label><select id="vType" onchange="reMatch()"><option value="receive">收款凭证</option><option value="pay">付款凭证</option></select></div>
+<div class="fg" style="margin:0"><label>银行科目</label><select id="bankAcct"><option value="100206">100206 西藏银行-刘义虎</option><option value="100201">100201 建行北京中路支行</option><option value="100202">100202 工行8810-徐凤霞</option><option value="100203">100203 建行0085-徐凤霞</option><option value="100204">100204 鑫业-建行5035</option><option value="100205">100205 鑫启航-建行</option><option value="1001">1001 现金</option><option value="100901">100901 毕总微信</option></select></div>
+<div class="fg" style="margin:0"><label>默认货款科目</label><select id="defAcct"><option value="1131">1131 应收账款（挂客户）</option><option value="5101">5101 主营业务收入（挂客户）</option><option value="2103">2103 应付账款（挂供应商）</option></select></div>
+</div>
+</div>
+</div>
+<div class="stats-bar" id="statsBar" style="display:none">
+<div class="stat-item"><div><div class="num" id="nTotal">0</div><div class="label">总记录</div></div></div>
+<div class="stat-item ok"><div><div class="num" id="nMatched">0</div><div class="label">已匹配</div></div></div>
+<div class="stat-item warn"><div><div class="num" id="nUnmatch">0</div><div class="label">待确认</div></div></div>
+<div class="stat-item"><div><div class="num" id="nAmt">0</div><div class="label">总金额</div></div></div>
+<div style="flex:1"></div>
+<button class="btn btn-p" onclick="reMatch()">🔄 重新匹配</button>
+<button class="btn btn-s" onclick="doExport()">📥 导出金蝶凭证</button>
+</div>
+<div id="pCard" class="card hidden"><div class="card-bd" style="padding:10px 16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:500">匹配进度</span><span style="font-size:12px;color:var(--text-sec)" id="pTxt">0%</span></div><div class="pbar"><div class="fill" id="pFill" style="width:0%"></div></div></div></div>
+<div class="filter-bar" id="fBar" style="display:none">
+<span style="font-size:12px;color:var(--text-sec)">筛选：</span>
+<button class="fbtn on" onclick="setF('all',this)">全部</button>
+<button class="fbtn" onclick="setF('matched',this)">✅已匹配</button>
+<button class="fbtn" onclick="setF('unmatched',this)">⚠️待确认</button>
+<button class="fbtn" onclick="setF('nonsales',this)">📋非货款</button>
+<div style="flex:1"></div>
+<input type="text" class="search-inp" placeholder="搜索摘要/客户..." id="sInp" oninput="render()">
+</div>
+<div class="card" id="tblCard" style="display:none">
+<div class="card-bd" style="padding:0">
+<div class="table-wrap">
+<table><thead><tr>
+<th style="width:36px">#</th><th style="width:82px">日期</th><th>摘要</th><th style="width:90px">金额</th><th style="width:72px">状态</th><th style="width:170px">对方科目</th><th style="width:220px">客户/供应商</th><th style="width:80px">编码</th><th style="width:50px">操作</th>
+</tr></thead><tbody id="tBody"></tbody></table>
+</div>
+<div class="pagination" id="pag"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="footer">开发者：张洪杰，侵权必究</div>
+
+<div class="modal-bg hidden" id="addModal">
+<div class="modal">
+<div class="modal-hd"><h3 id="addTitle">新增客户</h3><button class="modal-close" onclick="closeAdd()">&times;</button></div>
+<div class="modal-bd">
+<div class="fg"><label>编码</label><input type="text" id="addCode" placeholder="如：02.01.0200 或 200"></div>
+<div class="fg"><label>名称</label><input type="text" id="addName" placeholder="客户/供应商全称"></div>
+<div class="fg"><label>类型</label><select id="addType"><option value="customer">客户（应收账款）</option><option value="supplier">供应商（应付账款）</option></select></div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-o" onclick="closeAdd()">取消</button><button class="btn btn-p" onclick="confirmAdd()">确认添加</button></div>
+</div>
+</div>
+</div>
+
+<script>
+// === 嵌入基础数据 ===
+const E_CUST=[{"code": "0001", "name": "零散客户", "phones": []}, {"code": "01.0001", "name": "李小明", "phones": []}, {"code": "01.0002", "name": "谢明明", "phones": []}, {"code": "01.0003", "name": "李平", "phones": []}, {"code": "01.0004", "name": "王景龙", "phones": []}, {"code": "01.0005", "name": "王威", "phones": []}, {"code": "01.0007", "name": "周总", "phones": []}, {"code": "01.0012", "name": "中合五金3号", "phones": []}, {"code": "01.0016", "name": "17784580471", "phones": ["17784580471"]}, {"code": "01.0019", "name": "张欣雨", "phones": []}, {"code": "01.0025", "name": "张佳贤13975915768", "phones": ["13975915768"]}, {"code": "01.0026", "name": "梅恒18382368705", "phones": ["18382368705"]}, {"code": "01.0027", "name": "赵毅静", "phones": []}, {"code": "01.0028", "name": "刘思思", "phones": []}, {"code": "01.0029", "name": "唐靖15173965703", "phones": ["15173965703"]}, {"code": "01.0030", "name": "张无敌", "phones": []}, {"code": "01.0033", "name": "邓奇峰", "phones": []}, {"code": "01.0036", "name": "莫国良", "phones": []}, {"code": "02.01.0001", "name": "拉萨城关区金珠西路沪浙五金建材商行13989096186", "phones": ["13989096186"]}, {"code": "02.01.0002", "name": "拉萨城关区太阳岛金天电脑文体13908993442", "phones": ["13908993442"]}, {"code": "02.01.0005", "name": "拉萨城关区贡布堂路保鸿五金店城关区贡布堂路8号15113933828", "phones": ["15113933828"]}, {"code": "02.01.0006", "name": "拉萨城关区塔玛街道格林多能超市申总17708980701", "phones": ["17708980701"]}, {"code": "02.01.0007", "name": "拉萨城关区城关花园贤内助五金建材后货18989083156王哥", "phones": ["18989083156"]}, {"code": "02.01.0008", "name": "拉萨城关区城关花园D区11栋30号振通五金机电蒋总13398220444", "phones": ["13398220444"]}, {"code": "02.01.0011", "name": "拉萨城关区纳金东路罗超五金百货15226062066", "phones": ["15226062066"]}, {"code": "02.01.0012", "name": "拉萨市城关区纳金街道纳金东路都川文五金卢总18381535929", "phones": ["18381535929"]}, {"code": "02.01.0013", "name": "拉萨市城关区嘎玛贡桑街道海扬五金林姐18650239276", "phones": ["18650239276"]}, {"code": "02.01.0016", "name": "拉萨市城关区红旗东路胜龙五金13298981004", "phones": ["13298981004"]}, {"code": "02.01.0018", "name": "拉萨市城关区娘热街道马国良五金百货13154878353", "phones": ["13154878353"]}, {"code": "02.01.0019", "name": "拉萨市城关区娘热街道老萨五金百货17159314000", "phones": ["17159314000"]}, {"code": "02.01.0020", "name": "拉萨市城关区纳金街道辰星五金电工工具15889073998", "phones": ["15889073998"]}, {"code": "02.01.0021", "name": "拉萨市城关区娘热街道汇川五金13989904494", "phones": ["13989904494"]}, {"code": "02.01.0022", "name": "拉萨市城关区扎细街道夺底北路小刘五金18208007377", "phones": ["18208007377"]}, {"code": "02.01.0023", "name": "拉萨市城关区娘热街道娘热北路社穆素五金百货店马总15117151460", "phones": ["15117151460"]}, {"code": "02.01.0029", "name": "拉萨市城关区娘热街道萨峰五金建材沈总18798902571", "phones": ["18798902571"]}, {"code": "02.01.0030", "name": "拉萨市城关区娘热乡临韩日用百货超市18209305333", "phones": ["18209305333"]}, {"code": "02.01.0031", "name": "拉萨市城关区娘热街道城北甲中五金17749619736", "phones": ["17749619736"]}, {"code": "02.01.0036", "name": "拉萨市城关区扎细街道当热中路渝潼五金郑总13638908298", "phones": ["13638908298"]}, {"code": "02.01.0038", "name": "拉萨市城关区当热中路15号万金益五金标准件13549007268", "phones": ["13549007268"]}, {"code": "02.01.0039", "name": "拉萨市城关区蔡公堂街道老李五金百货商行13837821343", "phones": ["13837821343"]}, {"code": "02.01.0040", "name": "拉萨市城关区蔡公堂街道川藏公路剑锋五金建材18620160505", "phones": ["18620160505"]}, {"code": "02.01.0041", "name": "拉萨市城关区318国道海斌五金建材18059945922", "phones": ["18059945922"]}, {"code": "02.01.0044", "name": "拉萨市城关区白定东路罗家兴五金机电建材15692691870", "phones": ["15692691870"]}, {"code": "02.01.0045", "name": "拉萨市城关区白定东路文华五金百货批发马文华16689010291", "phones": ["16689010291"]}, {"code": "02.01.0047", "name": "拉萨市城关区江苏东路思进小五金门市18993675150", "phones": ["18993675150"]}, {"code": "02.01.0049", "name": "拉萨市城关区纳金街道岗堆路豪飞五金机电13989995572", "phones": ["13989995572"]}, {"code": "02.01.0050", "name": "拉萨市城关区当热中路美的厨电卫浴江哥13989007621", "phones": ["13989007621"]}, {"code": "02.01.0052", "name": "拉萨市城关区娘热街道曾宇五金13638996051", "phones": ["13638996051"]}, {"code": "02.01.0054", "name": "拉萨市城关区娘热街道城北马小斌百货18219808887", "phones": ["18219808887"]}, {"code": "02.01.0055", "name": "拉萨市城关区蔡公堂街道紫气东来五金18108986179", "phones": ["18108986179"]}, {"code": "02.01.0056", "name": "拉萨市城关区蔡公堂街道318国道志阳五金百货店13526413729", "phones": ["13526413729"]}, {"code": "02.01.0057", "name": "拉萨市城关区书山路城东罗辉百货超市书山路17351998736", "phones": ["17351998736"]}, {"code": "02.01.0058", "name": "拉萨市城关区纳金街道纳金中路朗鑫五金店18989019219", "phones": ["18989019219"]}, {"code": "02.01.0059", "name": "拉萨市城关区志阳五金店13921148819", "phones": ["13921148819"]}, {"code": "02.01.0061", "name": "拉萨市城关区苏山路董思宇五金百货18143281128", "phones": ["18143281128"]}, {"code": "02.01.0064", "name": "拉萨市城关区嘎玛贡桑街道建山装饰材料15089027273", "phones": ["15089027273"]}, {"code": "02.01.0065", "name": "拉萨市城关区当巴社区马尕三百货店15214004882", "phones": ["15214004882"]}, {"code": "02.01.0067", "name": "禁用-散买客户", "phones": []}, {"code": "02.01.0070", "name": "拉萨市城关区纳金街道纳金东路广友五金日用百货18308009325", "phones": ["18308009325"]}, {"code": "02.01.0071", "name": "拉萨市城关区桑伊路蜀园立生五金店15080377368", "phones": ["15080377368"]}, {"code": "02.01.0077", "name": "拉萨市城关区卓玛医院五金铁艺配件18368979264", "phones": ["18368979264"]}, {"code": "02.01.0078", "name": "拉萨市城关区蔡公堂街道达瓦路摇篮超市15897244362", "phones": ["15897244362"]}, {"code": "02.01.0080", "name": "拉萨市城关区蔡公堂街道三毛百货五金13949426258", "phones": ["13949426258"]}, {"code": "02.01.0081", "name": "拉萨市城关区蔡公堂街道粘福超市17711941552", "phones": ["17711941552"]}, {"code": "02.01.0084", "name": "拉萨市城关区纳金街道建贤装饰材料18108917760", "phones": ["18108917760"]}, {"code": "02.01.0085", "name": "拉萨市城关区嘎玛贡桑街道藏热南路80号秀兰五金百贸13897690269", "phones": ["13897690269"]}, {"code": "02.01.0086", "name": "拉萨市城关区扎细街道当热中路崇江水电建材经营部13908914175", "phones": ["13908914175"]}, {"code": "02.01.0088", "name": "拉萨市城关区吉日街道江苏东路唐汪百货13298906338", "phones": ["13298906338"]}, {"code": "02.01.0090", "name": "拉萨市城关区塔玛街道贡布堂路久友五金建材18091576795", "phones": ["18091576795"]}, {"code": "02.01.0092", "name": "拉萨市城关区夺底街道夺底北路城北凯奥建材13658912659", "phones": ["13658912659"]}, {"code": "02.01.0102", "name": "拉萨市城关区纳金街道纳金东路大喜牛潮汕牛肉料理王洪伟19997059882", "phones": ["19997059882"]}, {"code": "02.01.0103", "name": "拉萨市城关区第二高级中学东南侧庆胜百货店15289019811", "phones": ["15289019811"]}, {"code": "02.01.0104", "name": "拉萨市城关区扎西新村朋利百货商店15348916421", "phones": ["15348916421"]}, {"code": "02.01.0105", "name": "拉萨市城关区巴尔库路消防老高13348838424", "phones": ["13348838424"]}, {"code": "02.01.0108", "name": "拉萨市城关区夺底街道润润销售部13737718777", "phones": ["13737718777"]}, {"code": "02.01.0110", "name": "姓名:王总亿源五金", "phones": []}, {"code": "02.01.0111", "name": "拉萨市城关区蔡公堂街道蔡村4组13号西藏拓世建筑工程有限公司13889098249", "phones": ["13889098249"]}, {"code": "02.01.0113", "name": "拉萨市城关区当热东路城北林巴防水基鈊商行15182877008", "phones": ["15182877008"]}, {"code": "02.01.0116", "name": "拉萨市城关区蔡公堂街道川藏公路马临玉五金百货18708019884", "phones": ["18708019884"]}, {"code": "02.01.0117", "name": "拉萨市城关区蔡公堂街道川藏公路城东五金18898006394", "phones": ["18898006394"]}, {"code": "02.01.0119", "name": "拉萨市城关区蔡公堂街道亮萨五金建材一分店13569847221", "phones": ["13569847221"]}, {"code": "02.01.0123", "name": "拉萨市城关区当热中路1号安居小区鑫三环经营部15628597976", "phones": ["15628597976"]}, {"code": "02.01.0125", "name": "府爱仁大药房13881989379", "phones": ["13881989379"]}, {"code": "02.01.0126", "name": "拉萨市城关区巴尔库路与扎基西路交叉口南140米 永成电焊不锈钢销售17718797379", "phones": ["17718797379"]}, {"code": "02.01.0127", "name": "拉萨市城关区色拉路80号 西藏维佳工贸有限公司李总15608999966", "phones": ["15608999966"]}, {"code": "02.01.0135", "name": "拉萨市城关区夺底街道立生五金曲色组278号15080377368", "phones": ["15080377368"]}, {"code": "02.01.0136", "name": "拉萨市城关区川藏公路交叉口老李五金百货18143813743", "phones": ["18143813743"]}, {"code": "02.01.0138", "name": "拉萨市城关区城北娘热街道存贵百货15692652212", "phones": ["15692652212"]}, {"code": "02.01.0139", "name": "拉萨市城关区塔玛南路24商业楼18排8号团琳五金13930459871", "phones": ["13930459871"]}, {"code": "02.01.0140", "name": "拉萨市城关区川藏公路嘉莉星星五金店13628984878", "phones": ["13628984878"]}, {"code": "02.01.0141", "name": "拉萨市城关区金珠西路街道金珠西路建工大厦沪浙五金建材18708005891", "phones": ["18708005891"]}, {"code": "02.01.0143", "name": "拉萨市城关区金珠西路街道金珠西路广喜商店15379911784", "phones": ["15379911784"]}, {"code": "02.01.0144", "name": "拉萨市城关区金珠西路街道金珠西路铁姗姗百货超市13221631332", "phones": ["13221631332"]}, {"code": "02.01.0148", "name": "拉萨市城关区八一街道罗堆中路9号遇缘超市18908995594", "phones": ["18908995594"]}, {"code": "02.01.0150", "name": "拉萨市城关区八一街道王景便利店15193861494", "phones": ["15193861494"]}, {"code": "02.01.0152", "name": "拉萨市城关区公德林街道生德百货五金店18197164387", "phones": ["18197164387"]}, {"code": "02.01.0155", "name": "拉萨城关区川藏公路以奴四五金百货店", "phones": []}, {"code": "02.01.0157", "name": "亿百家王总13518993727", "phones": ["13518993727"]}, {"code": "02.01.0158", "name": "拉萨市城关区张总西藏迎宾馆15808716219", "phones": ["15808716219"]}, {"code": "02.01.0161", "name": "西藏中拓恒业商贸有限公司18969607659", "phones": ["18969607659"]}, {"code": "02.01.0164", "name": "君为赵总", "phones": []}, {"code": "02.01.0165", "name": "裕铭五金马总-普兰工地18697220588备用18989045234", "phones": ["18697220588", "18989045234"]}, {"code": "02.01.0167", "name": "拉萨天海建材市场金金瑞五金13228900931", "phones": ["13228900931"]}, {"code": "02.01.0174", "name": "拉萨市城关区娟花便利店15091698157", "phones": ["15091698157"]}, {"code": "02.01.0176", "name": "拉萨城关德庆区川龙建材15130355690", "phones": ["15130355690"]}, {"code": "02.02.0002", "name": "拉萨市堆龙德庆区羊达街道堆龙大道力泰钢结构有限公司 金友五金商行17739790316", "phones": ["17739790316"]}, {"code": "02.02.0004", "name": "拉萨市堆龙德庆区洋达街道堆龙大道 天诚五金商行13308907324", "phones": ["13308907324"]}, {"code": "02.02.0005", "name": "拉萨市堆龙德庆区堆龙大道洋达街道4组刁祁商贸有限公司19050541616", "phones": ["19050541616"]}, {"code": "02.02.0006", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道华丘实业13889016730", "phones": ["13889016730"]}, {"code": "02.02.0007", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道鑫怡电动工具13699608418", "phones": ["13699608418"]}, {"code": "02.02.0010", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道红运五金建材13989994879", "phones": ["13989994879"]}, {"code": "02.02.0012", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道新辉五金17789506003", "phones": ["17789506003"]}, {"code": "02.02.0014", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道华丘五金劳保15681026062", "phones": ["15681026062"]}, {"code": "02.02.0019", "name": "拉萨市堆龙德庆区东嘎街道柳东路婉燕公寓宏拓五金18297196369", "phones": ["18297196369"]}, {"code": "02.02.0022", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道诚仁五金15281477226", "phones": ["15281477226"]}, {"code": "02.02.0023", "name": "拉萨市堆龙德庆区乃琼街道营门电缆堆龙建材交易中心18089012759", "phones": ["18089012759"]}, {"code": "02.02.0024", "name": "拉萨市堆龙德庆区东嘎街道堆龙大道老胡五金13989982830", "phones": ["13989982830"]}, {"code": "02.02.0026", "name": "拉萨市堆龙德庆区乃琼街道星洁地暖晋丰建材15352920678", "phones": ["15352920678"]}, {"code": "02.02.0027", "name": "拉萨市堆龙德庆区堆龙大道羊达乡顺旺五金机电张老板15728910732", "phones": ["15728910732"]}, {"code": "02.02.0028", "name": "拉萨市堆龙德庆区堆龙大道羊达乡恒逸五金吴总13890247337", "phones": ["13890247337"]}, {"code": "02.02.0029", "name": "拉萨市万建五金销售店溙再涛15708010346", "phones": ["15708010346"]}, {"code": "02.02.0030", "name": "拉萨市堆龙德庆区堆龙大道羊达乡崇尊五金经销部赵姐13889096893", "phones": ["13889096893"]}, {"code": "02.02.0031", "name": "拉萨市堆龙德庆区堆龙大道羊达乡蜀江五金建材杨姐13198898980", "phones": ["13198898980"]}, {"code": "02.02.0033", "name": "拉萨市堆龙德庆区堆龙大道羊达乡鑫豫园五金18593078807", "phones": ["18593078807"]}, {"code": "02.02.0040", "name": "拉萨市堆龙德庆区徐鹏13518145550", "phones": ["13518145550"]}, {"code": "02.02.0042", "name": "拉萨市堆龙德庆区东嘎农副市场马总13993006177", "phones": ["13993006177"]}, {"code": "02.02.0044", "name": "拉萨市堆龙德庆区堆龙大道柳东路林福百货商行13648985082", "phones": ["13648985082"]}, {"code": "02.02.0045", "name": "拉萨市堆龙德庆区明录五金杂货店13308983786", "phones": ["13308983786"]}, {"code": "02.02.0047", "name": "拉萨市堆龙德庆区堆龙万胜五金商行13362212854", "phones": ["13362212854"]}, {"code": "02.02.0050", "name": "拉萨市堆龙德庆区乃新建材市场铭茂五金销售部15884483356", "phones": ["15884483356"]}, {"code": "02.02.0052", "name": "拉萨堆龙建材交易中心349号.营门电缆，廖永东17308987299", "phones": ["17308987299"]}, {"code": "02.02.0053", "name": "拉萨市堆龙德庆区乃琼街道柳东路乃琼安居苑荣茂达五金商行15293031733", "phones": ["15293031733"]}, {"code": "02.02.0057", "name": "拉萨市堆龙德庆区柳东大桥百富五金百货18709728933", "phones": ["18709728933"]}, {"code": "02.02.0058", "name": "拉萨市堆龙乃琼街道318国道德佳五金18981029421", "phones": ["18981029421"]}, {"code": "02.02.0059", "name": "拉萨市堆龙德庆区乃琼街道拉贡公路马滨五金18589111258", "phones": ["18589111258"]}, {"code": "02.02.0060", "name": "拉萨市堆龙德庆区乃琼街道拉贡大道学林百货部15628596213", "phones": ["15628596213"]}, {"code": "02.02.0061", "name": "拉萨市堆龙德庆区新建材市场湘宝五金18008993172", "phones": ["18008993172"]}, {"code": "02.02.0062", "name": "拉萨市堆龙德庆区建材交易中心4栋113号晋丰建材韩姐", "phones": []}, {"code": "02.02.0063", "name": "拉萨市堆龙德庆区东嘎街道柳东路宏拓五金老公17708988758", "phones": ["17708988758"]}, {"code": "02.02.0064", "name": "西藏镖局集团陈善龙", "phones": []}, {"code": "02.02.0065", "name": "拉萨市堆龙德庆区乃琼四海修理厂隔壁公牛汽车工具螺丝王总15081723398", "phones": ["15081723398"]}, {"code": "02.02.0072", "name": "拉萨市堆龙德庆区建材市场名门之秀老板娘17308912917", "phones": ["17308912917"]}, {"code": "02.02.0077", "name": "拉萨市堆龙德庆区东嘎街道轩贤百货批发零商行18309305678", "phones": ["18309305678"]}, {"code": "02.02.0078", "name": "拉萨市堆龙德庆区东嘎批发市场振云商贸有限公司15608996150", "phones": ["15608996150"]}, {"code": "02.02.0079", "name": "拉萨市堆龙德庆区乃琼街道波玛路萨九味超市13648981502", "phones": ["13648981502"]}, {"code": "02.02.0080", "name": "拉萨市堆龙德庆区乃琼街道波玛路堆龙德庆区新建材市场炅鑫建材有限公司15892646667", "phones": ["15892646667"]}, {"code": "02.02.0084", "name": "拉萨市堆龙德庆区乃琼街道波玛堆龙新建材市场金固达五金管道13980775183", "phones": ["13980775183"]}, {"code": "02.02.0086", "name": "拉萨市堆龙德庆区乃琼街道园区南路逸轩五金百货13989004897", "phones": ["13989004897"]}, {"code": "02.02.0088", "name": "拉萨市堆龙德庆区东嘎街道俊熙超市15836455245", "phones": ["15836455245"]}, {"code": "02.02.0094", "name": "拉萨市堆龙德庆区羊达街道羊贾路小伙子超市15777300318", "phones": ["15777300318"]}, {"code": "02.02.0096", "name": "拉萨市堆龙德庆区东嘎街道东嘎东路鑫金五金百货18989907154", "phones": ["18989907154"]}, {"code": "02.02.0104", "name": "拉萨市堆龙德庆区洪宾五金店15889070949", "phones": ["15889070949"]}, {"code": "02.02.0107", "name": "拉萨市堆龙德庆区乃琼街道工具螺丝17308914968", "phones": ["17308914968"]}, {"code": "02.02.0111", "name": "拉萨市堆龙德庆区乃琼街道悦柠五金销售部15031933469", "phones": ["15031933469"]}, {"code": "02.02.0115", "name": "曾建18627570317", "phones": ["18627570317"]}, {"code": "02.02.0120", "name": "拉萨市堆龙德庆区东嘎街道扈家超市15728906332", "phones": ["15728906332"]}, {"code": "02.02.0121", "name": "刘启杰", "phones": []}, {"code": "02.02.0122", "name": "洛桑达杰19246857230", "phones": ["19246857230"]}, {"code": "02.02.0124", "name": "拉萨市堆龙德庆区乃琼街道西藏昆仑七彩油漆15352920672", "phones": ["15352920672"]}, {"code": "02.02.0127", "name": "拉萨市堆龙德庆区东嘎街道桥鹏商贸17808910866", "phones": ["17808910866"]}, {"code": "02.02.0134", "name": "拉萨市堆龙德庆区万聚之家五金机电设备15089029649", "phones": ["15089029649"]}, {"code": "02.02.0138", "name": "拉萨市堆龙德庆区羊达乡巴久17745179914", "phones": ["17745179914"]}, {"code": "02.02.0139", "name": "拉萨市城关区绵阳小田五金机电15692699504", "phones": ["15692699504"]}, {"code": "02.02.0141", "name": "拉萨市堆龙德庆区东嘎小学临有百货店17711992514", "phones": ["17711992514"]}, {"code": "02.02.0142", "name": "松茸王", "phones": []}, {"code": "02.02.0144", "name": "堆龙，刘义虎五金18908903370", "phones": ["18908903370"]}, {"code": "02.02.0146", "name": "拉萨市堆龙新建材市场 友兴建材13298910723", "phones": ["13298910723"]}, {"code": "02.02.0148", "name": "拉萨市堆龙新区建材市场瑞鸿五金工具商行18076910246", "phones": ["18076910246"]}, {"code": "02.02.0149", "name": "拉萨市堆龙德庆区建材城波玛路2号雅腾五金建材13228998629（月结）", "phones": ["13228998629"]}, {"code": "02.02.0152", "name": "拉萨市堆龙德庆区新教材市场津东电气电缆15889012324", "phones": ["15889012324"]}, {"code": "02.02.0156", "name": "拉萨市堆龙德庆区羊达街道堆龙大道世达工具13897063608", "phones": ["13897063608"]}, {"code": "02.02.0157", "name": "红星美凯龙楚楚顶墙（张总）", "phones": []}, {"code": "02.02.0158", "name": "拉萨市堆龙德庆区人和日月湖水景花园五金建材门市19981080998", "phones": ["19981080998"]}, {"code": "02.02.0160", "name": "拉萨市堆龙德庆区东嘎街道拉贡大道10号五金百货杜老板", "phones": []}, {"code": "02.02.0162", "name": "拉萨市堆龙德庆区乃桑路欣鹏鑫五金商行", "phones": []}, {"code": "02.02.0165", "name": "中财洪总", "phones": []}, {"code": "02.02.0169", "name": "拉萨市堆龙德庆区建材市场旁高新商贸15228233337", "phones": ["15228233337"]}, {"code": "02.02.0172", "name": "拉萨市堆龙德庆区羊达街道羊贾路城关区卓汇装饰公司15365183336", "phones": ["15365183336"]}, {"code": "02.02.0174", "name": "拉萨市堆龙德庆区羊达街道羊贾路日丰总代理19889201003", "phones": ["19889201003"]}, {"code": "02.02.0175", "name": "拉萨市堆龙德庆区羊达街道羊贾路赵总15132739666", "phones": ["15132739666"]}, {"code": "02.02.0180", "name": "推龙德庆懿豪有限公司", "phones": []}, {"code": "02.02.0184", "name": "拉萨市堆龙建材市场鹏帅17389006351", "phones": ["17389006351"]}, {"code": "02.02.0188", "name": "拉萨市堆龙建材市场崇园五金13989089047", "phones": ["13989089047"]}, {"code": "02.02.0196", "name": "拉萨市城关区雅恒五金劳保胶带15692691043", "phones": ["15692691043"]}, {"code": "02.03.0004", "name": "拉萨市达孜区德庆镇虎峰大道文海五金百货商行15289115083", "phones": ["15289115083"]}, {"code": "02.03.0005", "name": "拉萨市达孜三成五金百货商行达孜区18093071114", "phones": ["18093071114"]}, {"code": "02.03.0006", "name": "拉萨市达孜区民用五金建材18989000051", "phones": ["18989000051"]}, {"code": "02.03.0007", "name": "拉萨市达孜区诚信五金建材百货18689187895", "phones": ["18689187895"]}, {"code": "02.03.0008", "name": "拉萨市达孜区帮堆乡202省道星霖五金建材17308912191", "phones": ["17308912191"]}, {"code": "02.03.0014", "name": "拉萨市达孜区呈祥五金建材门市部18989998898", "phones": ["18989998898"]}, {"code": "02.04.0003", "name": "拉萨市永靖商行林周县15209020338", "phones": ["15209020338"]}, {"code": "02.04.0006", "name": "拉萨市林周县骏茂五金百货17374396284", "phones": ["17374396284"]}, {"code": "02.04.0011", "name": "一分利水电建材有限责任公司", "phones": []}, {"code": "02.04.0012", "name": "拉萨市林周县甘曲路灿民五金百货16689071669", "phones": ["16689071669"]}, {"code": "02.04.0013", "name": "拉萨林周县星光建材销售有限公司", "phones": []}, {"code": "02.05.0001", "name": "拉萨当雄当曲河东路57号铁建五金13689314426", "phones": ["13689314426"]}, {"code": "02.05.0003", "name": "拉萨当雄志文五金机电门市部13658960404", "phones": ["13658960404"]}, {"code": "02.05.0005", "name": "拉萨市当雄县福源五金油漆店老店13618993543", "phones": ["13618993543"]}, {"code": "02.05.0006", "name": "拉萨市当雄县刁祁百货商行15608998930", "phones": ["15608998930"]}, {"code": "02.05.0007", "name": "拉萨市当雄县渝陈五金建材15348904866", "phones": ["15348904866"]}, {"code": "02.05.0008", "name": "拉萨市当雄县福源五金建材商行13658988103", "phones": ["13658988103"]}, {"code": "02.05.0009", "name": "当雄县马伟15299989920", "phones": ["15299989920"]}, {"code": "02.06.0002", "name": "拉萨市尼木县塔荣镇人民路63号宏远五金建材17708994966", "phones": ["17708994966"]}, {"code": "02.06.0005", "name": "拉萨市尼木县塔荣镇人民路昌达五金百货店13078658336", "phones": ["13078658336"]}, {"code": "02.07.0004", "name": "拉萨市曲水县曲水镇雅江路海东商行19997209417", "phones": ["19997209417"]}, {"code": "02.07.0008", "name": "拉萨市曲水县雪村双连五金建材13298908959", "phones": ["13298908959"]}, {"code": "02.07.0011", "name": "拉萨市曲水县318国道友谊五金建材17784554920", "phones": ["17784554920"]}, {"code": "02.07.0014", "name": "拉萨市曲水县聂当乡金银铜器市场顺泰五金17635746612", "phones": ["17635746612"]}, {"code": "02.07.0017", "name": "拉萨市曲水县欣鹏鑫五金经营部15551379651", "phones": ["15551379651"]}, {"code": "02.07.0018", "name": "西藏瑞迈公司 蓝总", "phones": []}, {"code": "02.08.0001", "name": "拉萨市墨竹工卡县嘎则路27鹏鹰商贸城18989055554", "phones": ["18989055554"]}, {"code": "02.08.0002", "name": "拉萨市墨竹工卡县嘎则路17号万鼎建材分店13228985977", "phones": ["13228985977"]}, {"code": "02.08.0004", "name": "拉萨市墨竹工卡县文泰百货店15390603411", "phones": ["15390603411"]}, {"code": "02.08.0005", "name": "拉萨市墨竹工卡县武氏百货店13889006524", "phones": ["13889006524"]}, {"code": "02.08.0006", "name": "拉萨市墨竹工卡县健达五金15111736358", "phones": ["15111736358"]}, {"code": "02.08.0007", "name": "拉萨市墨竹工卡县曲踏五金百货店15089006370", "phones": ["15089006370"]}, {"code": "02.08.0009", "name": "拉萨市墨竹工卡县尼玛娘热乡青海五金18108905662", "phones": ["18108905662"]}, {"code": "02.08.0010", "name": "拉萨墨竹工卡县小韩五金13228905422", "phones": ["13228905422"]}, {"code": "02.08.0013", "name": "墨竹工卡县南京路新桥水电五金13383769216", "phones": ["13383769216"]}, {"code": "02.10.0001", "name": "拉萨市正跃五金柳梧新区13734907826", "phones": ["13734907826"]}, {"code": "02.10.0002", "name": "拉萨市得明五金建材15390615655", "phones": ["15390615655"]}, {"code": "02.10.0003", "name": "拉萨市胖子五金店15666557631", "phones": ["15666557631"]}, {"code": "02.10.0004", "name": "拉萨市亮萨五金建材13634536290", "phones": ["13634536290"]}, {"code": "02.10.0005", "name": "拉萨市鑫库五金建材13560889022", "phones": ["13560889022"]}, {"code": "02.10.0007", "name": "拉萨市晖奥信息科技有限公司15708036688", "phones": ["15708036688"]}, {"code": "02.10.0008", "name": "柳梧新区北京大道胖子锁店五金店13681453521", "phones": ["13681453521"]}, {"code": "03.03.0001", "name": "裕铭马总札达工地收货电话18997420779备用18989045234", "phones": ["18997420779", "18989045234"]}, {"code": "04.0001", "name": "林芝市建材市场远鸿装饰13117172000彭程程", "phones": ["13117172000"]}, {"code": "04.01.0001", "name": "林芝市巴宜区金源五金机电13388123712", "phones": ["13388123712"]}, {"code": "04.01.0006", "name": "林芝市巴宜区腾飞平价百货综合商行15208042745", "phones": ["15208042745"]}, {"code": "04.01.0009", "name": "林芝市巴宜区雅江源五金建材行13518945237", "phones": ["13518945237"]}, {"code": "04.01.0011", "name": "林芝市巴宜区广东路316号愉州五金13398044120", "phones": ["13398044120"]}, {"code": "04.01.0012", "name": "林芝市巴宜区广东路318号小杨重庆建材13549041158", "phones": ["13549041158"]}, {"code": "04.01.0014", "name": "林芝市巴宜区林芝金凤凰19958666777", "phones": ["19958666777"]}, {"code": "04.01.0017", "name": "林芝市巴宜区广东路392号渝西建材17384085245", "phones": ["17384085245"]}, {"code": "04.01.0020", "name": "林芝市巴宜区鑫河五金水电器材18689045609", "phones": ["18689045609"]}, {"code": "04.01.0021", "name": "林芝市巴宜区湘鑫五金13658942178", "phones": ["13658942178"]}, {"code": "04.01.0023", "name": "林芝市巴宜区广东路441号安岳五金18190312846", "phones": ["18190312846"]}, {"code": "04.01.0024", "name": "林芝市巴宜区顺兴五金建材15818052560", "phones": ["15818052560"]}, {"code": "04.01.0025", "name": "林芝市巴宜区湘鸿机电五金13659591243(巴宜)", "phones": ["13659591243"]}, {"code": "04.01.0027", "name": "林芝市巴宜区蓝翔日化百货15889041003", "phones": ["15889041003"]}, {"code": "04.01.0028", "name": "林芝市巴宜区顺发五金建材门市部13638946028", "phones": ["13638946028"]}, {"code": "04.01.0036", "name": "林芝市巴宜区川渝五金机电17389945618", "phones": ["17389945618"]}, {"code": "04.01.0038", "name": "林芝市巴宜区湘南五金建材商行批发15889044597（月结）", "phones": ["15889044597"]}, {"code": "04.01.0039", "name": "林芝市巴宜区湘宝商贸有限公司13659592229", "phones": ["13659592229"]}, {"code": "04.01.0040", "name": "林芝市巴宜区宏鑫建材市场13648365313", "phones": ["13648365313"]}, {"code": "04.01.0041", "name": "林芝市巴宜区全友五金18898092359", "phones": ["18898092359"]}, {"code": "04.01.0043", "name": "林芝市巴宜区雄海物资有限公司13974936287", "phones": ["13974936287"]}, {"code": "04.01.0044", "name": "林芝市巴宜区平安路56号同心建材五金店13908948104", "phones": ["13908948104"]}, {"code": "04.01.0047", "name": "林芝市巴宜区巴吉路宏鑫建材市场马可波罗建材商行13628942120", "phones": ["13628942120"]}, {"code": "04.01.0050", "name": "林芝市巴宜区广东路渝鑫五金门市八一彭宗烈13989944818", "phones": ["13989944818"]}, {"code": "04.01.0055", "name": "林芝市巴宜区新鹏小五金店17623244006", "phones": ["17623244006"]}, {"code": "04.01.0056", "name": "林芝市巴宜区宏鑫市场博宏五金建材15812020817", "phones": ["15812020817"]}, {"code": "04.01.0058", "name": "林芝市巴宜区宏鑫建材市场三雄极光19823455402", "phones": ["19823455402"]}, {"code": "04.01.0062", "name": "林芝宏鑫市场欧贝尔瓷砖 15082202543", "phones": ["15082202543"]}, {"code": "04.01.0064", "name": "西藏林芝双虎实业有限公司", "phones": []}, {"code": "04.01.0065", "name": "周 林芝程哥15708049888（大客户部）", "phones": ["15708049888"]}, {"code": "04.02.0001", "name": "林芝工布江达县金鑫建材装饰综合商店17397148800", "phones": ["17397148800"]}, {"code": "04.02.0002", "name": "林芝市工布江达县裕铭五金销售部18989045234", "phones": ["18989045234"]}, {"code": "04.02.0003", "name": "林芝市工布江达县青千杂货店18208048189", "phones": ["18208048189"]}, {"code": "04.02.0004", "name": "林芝市工布江达县欧阳五金批发部18725672573", "phones": ["18725672573"]}, {"code": "04.02.0005", "name": "林芝市工布江达渝瑞五金机电（蓝天物流）17785668567", "phones": ["17785668567"]}, {"code": "04.03.0001", "name": "林芝市米林县雅鑫物资一站式采购（发启程物流）13658940598", "phones": ["13658940598"]}, {"code": "04.03.0002", "name": "林芝市米林市城邦建材商贸有限责任公司朱敏13872815570", "phones": ["13872815570"]}, {"code": "04.03.0003", "name": "林芝米林西藏小辉五金建材18687821181", "phones": ["18687821181"]}, {"code": "04.03.0004", "name": "林芝市米林市白总启沃建材西藏南伊村林邛路13989912990", "phones": ["13989912990"]}, {"code": "04.03.0005", "name": "林芝市米林雅新建材批发13763986257", "phones": ["13763986257"]}, {"code": "04.03.0010", "name": "林芝市米林雅供商贸王艳其18145216465", "phones": ["18145216465"]}, {"code": "04.03.0012", "name": "林芝市米林市雅峡五金吴13180005333", "phones": ["13180005333"]}, {"code": "04.03.0013", "name": "林芝市米林县宏发五金店18208049196", "phones": ["18208049196"]}, {"code": "04.03.0017", "name": "林芝市米林市米林镇平安路7-3号宏达商店17708940373", "phones": ["17708940373"]}, {"code": "04.03.0018", "name": "林芝市米林市湘红五金建材（派镇）18308032888", "phones": ["18308032888"]}, {"code": "04.03.0021", "name": "林芝市米林市建川五金建材15883291932", "phones": ["15883291932"]}, {"code": "04.03.0022", "name": "林芝市米林市齐翔商贸15881174328", "phones": ["15881174328"]}, {"code": "04.03.0023", "name": "林芝市米林市派镇宏进五金店13988638318", "phones": ["13988638318"]}, {"code": "04.03.0027", "name": "林芝市米林市众成五金机电桥隧物资15188805013", "phones": ["15188805013"]}, {"code": "04.03.0029", "name": "林芝市米林市鑫派五金建材批发13518946086（发平通物流）", "phones": ["13518946086"]}, {"code": "04.03.0031", "name": "林芝市米林市派镇森鸿五金严总18108985966", "phones": ["18108985966"]}, {"code": "04.03.0035", "name": "林芝市米林市小辉五金建材18687502528（禁用）18687502528", "phones": ["18687502528", "18687502528"]}, {"code": "04.03.0036", "name": "林芝市米林市雅鑫五金李小其18673279839", "phones": ["18673279839"]}, {"code": "04.03.0037", "name": "林芝市米林市洛元交通（冀安筛网）13032813322", "phones": ["13032813322"]}, {"code": "04.03.0041", "name": "林芝市米林市派镇糌巴拉商贸有限公司13228945388", "phones": ["13228945388"]}, {"code": "04.03.0043", "name": "林芝市米林市鑫泰建材批发18308048318", "phones": ["18308048318"]}, {"code": "04.03.0044", "name": "林芝市米林闽顺桥隧工程机械设备（发启程物流）13099939589", "phones": ["13099939589"]}, {"code": "04.03.0045", "name": "林芝市米林市雅供商贸18713208666", "phones": ["18713208666"]}, {"code": "04.03.0046", "name": "林芝市米林市鑫泰建材批发推荐客户（鑫鑫物流）13889046621", "phones": ["13889046621"]}, {"code": "04.03.0048", "name": "周宗云", "phones": []}, {"code": "04.03.0053", "name": "林芝市米林市雅宝商贸有限公司15549963888", "phones": ["15549963888"]}, {"code": "04.03.0055", "name": "林芝市米林市盛宏电力玲姐18889041108", "phones": ["18889041108"]}, {"code": "04.03.0058", "name": "曹伟18734138999", "phones": ["18734138999"]}, {"code": "04.05.0003", "name": "林芝波密县鑫远东五金商城13650538869", "phones": ["13650538869"]}, {"code": "04.05.0005", "name": "林芝市波密县利民五金店13518942710", "phones": ["13518942710"]}, {"code": "04.05.0006", "name": "林芝市波密县翔鹏工贸15328458777", "phones": ["15328458777"]}, {"code": "05.0006", "name": "那曲索县亚拉镇赞丹雪一二居委会罗布库经营合作社", "phones": []}, {"code": "05.01.0005", "name": "那曲市色尼区拉萨北路97号重庆足荣五金建材13989967382", "phones": ["13989967382"]}, {"code": "05.01.0006", "name": "那曲市色尼区锋飞五金机电（快通物流", "phones": []}, {"code": "05.01.0008", "name": "那曲市色尼区拉萨北路腾亿五金管件部18996396165", "phones": ["18996396165"]}, {"code": "05.01.0014", "name": "那曲市色尼区拉萨中路渝鸿五金店老板娘", "phones": []}, {"code": "05.01.0015", "name": "那曲市色尼区拉萨中路重庆大足五金建材", "phones": []}, {"code": "05.01.0017", "name": "那曲市色尼区扎空西路湘南五金机电百货店13889066048", "phones": ["13889066048"]}, {"code": "05.01.0019", "name": "那曲市色尼区重庆鹏川五金机电", "phones": []}, {"code": "05.01.0022", "name": "那曲市色尼区好家景建材13628902529", "phones": ["13628902529"]}, {"code": "05.01.0027", "name": "那曲市色尼区109国道博金五金建材", "phones": []}, {"code": "05.01.0031", "name": "那曲市色尼区开门环城南路开门红旁重庆明用五金18989964193", "phones": ["18989964193"]}, {"code": "05.01.0032", "name": "那曲市色尼区扎空中路顺瑞五金建材店", "phones": []}, {"code": "05.01.0036", "name": "那曲市色尼区锋飞五金建材老板娘", "phones": []}, {"code": "05.01.0037", "name": "那曲市宝石花物业旁全德劳保用品销售部18889068096", "phones": ["18889068096"]}, {"code": "05.01.0039", "name": "那曲市色尼区浙江中路鸿利百货", "phones": []}, {"code": "05.01.0042", "name": "那曲市色尼区317国道晨曦综合建材部", "phones": []}, {"code": "05.01.0044", "name": "那曲市色尼区西藏那曲佰信电线有限公司18100985627", "phones": ["18100985627"]}, {"code": "05.02.0001", "name": "那曲市嘉黎县重庆五金店15923532980", "phones": ["15923532980"]}, {"code": "05.03.0002", "name": "那曲市比如县明良五金店17789304598", "phones": ["17789304598"]}, {"code": "05.03.0003", "name": "那曲市比如县鸿发五金15289061439", "phones": ["15289061439"]}, {"code": "05.05.0002", "name": "那曲市安多县渝达建材15390610700", "phones": ["15390610700"]}, {"code": "05.05.0003", "name": "那曲市安多县鑫丰五金劳保机电15516345000", "phones": ["15516345000"]}, {"code": "05.05.0006", "name": "那曲市安多县武浩", "phones": []}, {"code": "05.07.0001", "name": "西藏那曲市索县县城 顿珠", "phones": []}, {"code": "05.07.0011", "name": "那曲市索县荣布镇荣达建材18093046273", "phones": ["18093046273"]}, {"code": "05.08.0001", "name": "那曲市班戈县渝隆五金建材", "phones": []}, {"code": "05.08.0002", "name": "那曲市班戈县诚胜五金建材15909772782", "phones": ["15909772782"]}, {"code": "05.09.0002", "name": "那曲市巴青县甘肃五金13519004818", "phones": ["13519004818"]}, {"code": "05.09.0006", "name": "那曲市巴青县袁式五金分店19908202221", "phones": ["19908202221"]}, {"code": "05.09.0010", "name": "那曲市巴青县国家电网旁边川营装饰", "phones": []}, {"code": "05.09.0011", "name": "那曲市巴青县祥云建材18509401666", "phones": ["18509401666"]}, {"code": "06.0001", "name": "日喀则国际商贸城湘明五金（光明物流", "phones": []}, {"code": "06.01.0001", "name": "日喀则桑珠孜区湘南五金（光明物流", "phones": []}, {"code": "06.01.0004", "name": "日喀则市桑珠孜区城南街道湘海五金（光明物流", "phones": []}, {"code": "06.01.0007", "name": "日喀则桑珠孜区黑龙江南路远腾五金（光明物流", "phones": []}, {"code": "06.01.0014", "name": "日喀则市桑珠孜区世超五金工具15208025685", "phones": ["15208025685"]}, {"code": "06.01.0015", "name": "日喀则市桑珠孜区腾运五金建材（万邦物流", "phones": []}, {"code": "06.01.0016", "name": "日喀则桑珠孜区雪强路湘福五金建材13659564808", "phones": ["13659564808"]}, {"code": "06.01.0018", "name": "日喀则盛隆灯具装饰15057538485", "phones": ["15057538485"]}, {"code": "06.01.0020", "name": "日喀则桑珠孜区曲荣门塘路赛辉灯具城15862286688", "phones": ["15862286688"]}, {"code": "06.01.0021", "name": "日喀则市桑珠孜区兴启建材（光明物流", "phones": []}, {"code": "06.01.0023", "name": "日喀则市桑珠孜区黑龙江北路萱鑫五金建材店19508996698", "phones": ["19508996698"]}, {"code": "06.01.0025", "name": "日喀则市桑珠孜区水利路桥建设（光明物流", "phones": []}, {"code": "06.01.0026", "name": "日喀则市桑珠孜区天创建材门市部（光明物流", "phones": []}, {"code": "06.01.0028", "name": "日喀则市桑珠孜区鑫运五金店17789029835", "phones": ["17789029835"]}, {"code": "06.01.0030", "name": "日喀则市桑珠孜区瑞城五金（光明物流", "phones": []}, {"code": "06.01.0034", "name": "一兴五金机电18919307904", "phones": ["18919307904"]}, {"code": "06.01.0037", "name": "日喀则桑珠孜区扎德中路润诚五金（万邦物流", "phones": []}, {"code": "06.01.0039", "name": "日喀则市桑珠孜区扎德西路老王五金（光明物流", "phones": []}, {"code": "06.01.0040", "name": "日喀则桑珠孜区雪强路忠运五金店18093004183", "phones": ["18093004183"]}, {"code": "06.01.0045", "name": "建宏五金建材13908924536", "phones": ["13908924536"]}, {"code": "06.01.0048", "name": "日喀则桑珠孜区川渝五金（万邦物流", "phones": []}, {"code": "06.01.0052", "name": "日喀则桑珠孜区添运五金建材（月结）（光明物流", "phones": []}, {"code": "06.01.0054", "name": "日喀则桑珠孜区豫商五金建材（光明物流", "phones": []}, {"code": "06.01.0057", "name": "日喀则桑珠孜区途腾五金（光明物流", "phones": []}, {"code": "06.01.0058", "name": "日喀则市桑珠孜区途腾五金（光明物流", "phones": []}, {"code": "06.01.0061", "name": "日客则蜀州水暖建材市场明达线缆（现金）", "phones": []}, {"code": "06.01.0063", "name": "日喀则桑珠孜区黑龙江南路湘龙五金（光明物流", "phones": []}, {"code": "06.01.0066", "name": "日喀则贝桑珠孜贝晴匠艺装饰（月结）（万邦物流", "phones": []}, {"code": "06.01.0067", "name": "日喀则桑珠孜区曲荣美达路3号鑫达五金18908927456", "phones": ["18908927456"]}, {"code": "06.01.0068", "name": "日喀则桑珠孜区中源五金机电商行（光明物流", "phones": []}, {"code": "06.01.0069", "name": "日喀则桑珠孜区349国道诚信五金百货商行（双鹰物流", "phones": []}, {"code": "06.01.0070", "name": "日喀则市桑珠孜区大邑兴弘五金（光明物流", "phones": []}, {"code": "06.01.0071", "name": "日喀则桑珠孜区黑龙江南路福宏五金（双鹰物流", "phones": []}, {"code": "06.01.0072", "name": "日喀则桑珠孜区吉吉郎卡路颂泽五金（兄弟物流", "phones": []}, {"code": "06.01.0073", "name": "日喀则桑珠孜区吉吉郎卡路旭阳五金（光明物流", "phones": []}, {"code": "06.01.0076", "name": "日喀则桑珠孜区起点电子科技有限公司", "phones": []}, {"code": "06.01.0077", "name": "日喀则桑珠孜区哒娜建材店", "phones": []}, {"code": "06.02.0003", "name": "日喀则南木林恒发五金/送车17889221100拉萨至南木林", "phones": ["17889221100"]}, {"code": "06.02.0007", "name": "日喀则南木林新津五金（客户自己车", "phones": []}, {"code": "06.03.0005", "name": "日珂则江孜川渝五金建材15508239899", "phones": ["15508239899"]}, {"code": "06.03.0012", "name": "日喀则江孜县江孜普普赤装饰装修18689020778", "phones": ["18689020778"]}, {"code": "06.03.0013", "name": "拉萨日喀则江孜15892595959", "phones": ["15892595959"]}, {"code": "06.04.0001", "name": "日喀则定日县湘达五金建材13487625523", "phones": ["13487625523"]}, {"code": "06.04.0003", "name": "日喀则定日县天达装修材料（送客户自己车", "phones": []}, {"code": "06.06.0001", "name": "日喀则拉孜县拉孜百材汇百货店（光明物流", "phones": []}, {"code": "06.06.0006", "name": "日喀则拉孜县恒材五金建材15608966164", "phones": ["15608966164"]}, {"code": "06.07.0001", "name": "日喀则昂仁县众泰建材五金（托宇货运", "phones": []}, {"code": "06.09.0005", "name": "日喀则白郎县嘉信五金经销部19908928900", "phones": ["19908928900"]}, {"code": "06.11.0001", "name": "日喀则康马县康马仁建五金建材", "phones": []}, {"code": "06.12.0001", "name": "日喀则定结县诚宇崇州五金（光明物流", "phones": []}, {"code": "06.13.0002", "name": "日喀则仲巴县小黎五金建材（恒程物流", "phones": []}, {"code": "06.14.0001", "name": "日喀则亚东县亚东广大五金建材百货店15355270705", "phones": ["15355270705"]}, {"code": "06.15.0001", "name": "日喀则吉隆县吉隆五金建材", "phones": []}, {"code": "06.15.0002", "name": "日喀则吉隆县吉隆镇伊鑫五金（穆萨物流", "phones": []}, {"code": "06.15.0003", "name": "日喀则吉隆县吉隆镇福鸿五金（豪捷物流", "phones": []}, {"code": "06.15.0004", "name": "日喀则吉隆县吉隆镇飞腾五金（豪杰物流", "phones": []}, {"code": "06.15.0005", "name": "日喀则吉隆县鸿发五金（豪捷物流", "phones": []}, {"code": "06.17.0002", "name": "日喀则萨嘎县盛达五金（恒程物流", "phones": []}, {"code": "06.17.0003", "name": "日喀则萨嘎县张扬五金（川富物流", "phones": []}, {"code": "07.01.0006", "name": "山南市湘邵五金建材店彭臣13659584137", "phones": ["13659584137"]}, {"code": "07.01.0008", "name": "山南市大邑五金 15348935688", "phones": ["15348935688"]}, {"code": "07.01.0010", "name": "山南市东顺五金工具店18989091399", "phones": ["18989091399"]}, {"code": "07.01.0016", "name": "山南市南山建材15726730168（2828车）", "phones": ["15726730168"]}, {"code": "07.01.0017", "name": "湘鄂五金建材商行17789036495", "phones": ["17789036495"]}, {"code": "07.01.0018", "name": "刘峰建材13648939892", "phones": ["13648939892"]}, {"code": "07.01.0020", "name": "山南市湘辉五金机电建材李双喜18989934028", "phones": ["18989934028"]}, {"code": "07.01.0024", "name": "西农集团山南有限公司袁总18008936995", "phones": ["18008936995"]}, {"code": "07.01.0027", "name": "山南市泉友电动工具18908934562", "phones": ["18908934562"]}, {"code": "07.01.0028", "name": "西藏金赐五金建材18189938611", "phones": ["18189938611"]}, {"code": "07.01.0030", "name": "温馨如梦家纺店16693611432", "phones": ["16693611432"]}, {"code": "07.01.0039", "name": "鑫源工具店", "phones": []}, {"code": "07.01.0042", "name": "山南湘阳五金机电建材", "phones": []}, {"code": "07.01.0044", "name": "都得利管业山南配送中心", "phones": []}, {"code": "07.03.0001", "name": "山南贡嘎县杰德秀精城电器维修15726739111", "phones": ["15726739111"]}, {"code": "07.03.0004", "name": "贡嘎县一分利建材店13658935212", "phones": ["13658935212"]}, {"code": "07.03.0008", "name": "贡嘎沃拉五金百货店", "phones": []}, {"code": "07.03.0013", "name": "马工15637281850", "phones": ["15637281850"]}, {"code": "07.03.0017", "name": "山南市贡嘎县班丹桑朱绿化朋总18489116555", "phones": ["18489116555"]}, {"code": "07.03.0019", "name": "山南市贡嘎县班丹桑朱巴总13908946753", "phones": ["13908946753"]}, {"code": "07.03.0021", "name": "山南市贡嘎县班丹桑朱绿化普总18189045666", "phones": ["18189045666"]}, {"code": "07.03.0022", "name": "山南市贡嘎县达扎13658905660", "phones": ["13658905660"]}, {"code": "07.03.0023", "name": "山南贡嘎绿化次当18289038613", "phones": ["18289038613"]}, {"code": "07.09.0001", "name": "山南市加查腾达五金（平通物流）", "phones": []}, {"code": "07.09.0002", "name": "加查县葛洲坝营地-顺顺五金建材-18289077097", "phones": ["18289077097"]}, {"code": "07.09.0006", "name": "山南加查县湘亮五金床上用品", "phones": []}, {"code": "07.10.0001", "name": "明哥（工程部）", "phones": []}, {"code": "4864534654756", "name": "山南市隆子县日当镇赛康兴隆商行多吉", "phones": []}, {"code": "08.0001", "name": "西藏君为实业有限公司", "phones": []}, {"code": "09.0001", "name": "西藏广晋建设工程有限公司", "phones": []}, {"code": "09.0002", "name": "西藏晋建实烨科技有限公司", "phones": []}, {"code": "09.0003", "name": "诺尔邦工贸有限责任公司", "phones": []}, {"code": "09.0004", "name": "海德集团-那曲项目", "phones": []}, {"code": "09.0005", "name": "韦德 韦总", "phones": []}, {"code": "09.0006", "name": "西藏闪锁网络科技有限公司", "phones": []}, {"code": "214748364706", "name": "经开区启扬建材中心", "phones": []}, {"code": "214748364709", "name": "城东之一", "phones": []}, {"code": "214748364710", "name": "林剑峰", "phones": []}, {"code": "214748364723", "name": "惠遂小五金门市", "phones": []}, {"code": "45648647536549", "name": "谢工17323070351", "phones": ["17323070351"]}, {"code": "4864534654757", "name": "勃塑管道周盼盼17789001728", "phones": ["17789001728"]}, {"code": "4864534654758", "name": "西藏梵森建房", "phones": []}, {"code": "4864534654759", "name": "巨龙采剥五金", "phones": []}, {"code": "4864534654762", "name": "海德集团赵总15110979456", "phones": ["15110979456"]}, {"code": "4864534654763", "name": "荆门建设", "phones": []}, {"code": "4864534654767", "name": "四川咏旭建工有限公司刘哥13438898177", "phones": ["13438898177"]}];
+const E_SUPP=[{"code": "001", "name": "现金采购", "phones": []}, {"code": "002", "name": "成都集沛商业运营管理有限公司", "phones": []}, {"code": "003", "name": "拉萨惠诺有限公司", "phones": []}, {"code": "004", "name": "龙泉剑钉业", "phones": []}, {"code": "005", "name": "A堆龙劳保服批发13930153503", "phones": ["13930153503"]}, {"code": "009", "name": "黄宁电动工具张总13989000428", "phones": ["13989000428"]}, {"code": "010", "name": "A兰氏五金批发（西藏九头鸟总代）", "phones": []}, {"code": "011", "name": "华丘五金", "phones": []}, {"code": "012", "name": "桥鹏商贸", "phones": []}, {"code": "013", "name": "宏拓工程材料有限公司拉萨市堆龙德庆区东嘎街道柳东路婉燕公寓", "phones": []}, {"code": "014", "name": "川龙建材", "phones": []}, {"code": "016", "name": "拉萨市威腾精工电动工具", "phones": []}, {"code": "017", "name": "拉萨营门电缆 廖永东", "phones": []}, {"code": "018", "name": "成都市晋都紧固件公司", "phones": []}, {"code": "019", "name": "西藏君为实业有限公司", "phones": []}, {"code": "021", "name": "盛博交通设施批发", "phones": []}, {"code": "023", "name": "河南硕缆电缆", "phones": []}, {"code": "024", "name": "星伟机电 18908989450", "phones": ["18908989450"]}, {"code": "025", "name": "湘宝五金", "phones": []}, {"code": "027", "name": "西藏昌升工贸有限公司", "phones": []}, {"code": "029", "name": "西藏恒泰井盖厂", "phones": []}, {"code": "030", "name": "城西湘酬五金机电建材", "phones": []}, {"code": "031", "name": "拉萨市堆龙德庆区昊一涂料经营部", "phones": []}, {"code": "032", "name": "西藏巨首实业有限公司", "phones": []}, {"code": "033", "name": "西藏堆龙金照灯具店", "phones": []}, {"code": "035", "name": "西藏锦亿实业有限公司", "phones": []}, {"code": "036", "name": "林芝川渝", "phones": []}, {"code": "038", "name": "金力王-福建泉州伟凡厨卫科技有限公司", "phones": []}, {"code": "039", "name": "晋州市启卓金属制品有限公司-扎丝", "phones": []}, {"code": "040", "name": "河东区尚亿牛盾劳保用品", "phones": []}, {"code": "041", "name": "西藏诚之瑞实业有限公司", "phones": []}, {"code": "042", "name": "临沂好使多建材有限公司（山东临沂好使多胶业）", "phones": []}, {"code": "044", "name": "成都鑫汇亿电力设备有限公司", "phones": []}, {"code": "045", "name": "兰氏五金", "phones": []}, {"code": "046", "name": "调货油桶", "phones": []}, {"code": "048", "name": "电缆支架-成都", "phones": []}, {"code": "050", "name": "西藏永昌网围栏厂", "phones": []}, {"code": "051", "name": "兰花锁具", "phones": []}, {"code": "052", "name": "达山五金", "phones": []}, {"code": "053", "name": "重庆鼎济商贸有限公司", "phones": []}, {"code": "054", "name": "安圣工贸", "phones": []}, {"code": "055", "name": "宁波海曙贵雀机械厂", "phones": []}, {"code": "056", "name": "政宜五金", "phones": []}, {"code": "057", "name": "腊旗绳", "phones": []}, {"code": "058", "name": "广东恒星钉枪直销厂", "phones": []}, {"code": "059", "name": "拉迪森济宁工厂", "phones": []}, {"code": "060", "name": "永兴脚轮", "phones": []}, {"code": "061", "name": "隆禹紧固件有限公司", "phones": []}, {"code": "064", "name": "山东源祥消防科技有限公司", "phones": []}, {"code": "065", "name": "旭豪防护用品", "phones": []}, {"code": "066", "name": "临沂步步高梯子厂", "phones": []}, {"code": "068", "name": "安徽万腾达塑胶科技有限公司", "phones": []}, {"code": "069", "name": "山东铸利胶粘制品有限公司", "phones": []}, {"code": "070", "name": "浙江信源电器制造有限公司", "phones": []}, {"code": "071", "name": "绵竹黄宁电动工具", "phones": []}, {"code": "072", "name": "临沂鲁逸电气", "phones": []}, {"code": "073", "name": "山东临沂强盛农具有限公司（军印）", "phones": []}, {"code": "074", "name": "临沂英仕克工具", "phones": []}, {"code": "075", "name": "西藏东联广告装饰", "phones": []}, {"code": "077", "name": "堆龙华杨五金批发", "phones": []}, {"code": "078", "name": "万利科技", "phones": []}, {"code": "079", "name": "山东鑫城电力", "phones": []}, {"code": "080", "name": "顺鑫陆劳保商贸", "phones": []}, {"code": "081", "name": "恒护劳保批发", "phones": []}, {"code": "082", "name": "山東力陽起重设备有限公司（吊装带）", "phones": []}, {"code": "083", "name": "飞龙标准件", "phones": []}, {"code": "084", "name": "河北英利达", "phones": []}, {"code": "085", "name": "立桐建材辅料（皖美嘉）", "phones": []}, {"code": "086", "name": "昆义洁具厂", "phones": []}, {"code": "087", "name": "临沂屹升达五金管道工具厂", "phones": []}, {"code": "088", "name": "临沂中科交通（长兴佳悦纺织有限公司）", "phones": []}, {"code": "089", "name": "劳劲工具生产制造", "phones": []}, {"code": "090", "name": "正渠好运篷布厂", "phones": []}, {"code": "091", "name": "拉萨云龙斗车厂", "phones": []}, {"code": "092", "name": "西藏川龙建材", "phones": []}, {"code": "094", "name": "承航五金工具厂", "phones": []}, {"code": "095", "name": "八方油漆杜鹏", "phones": []}, {"code": "096", "name": "山东耐特化纤（力阳安全绳）", "phones": []}, {"code": "097", "name": "超渊钢材", "phones": []}, {"code": "098", "name": "西藏锦亿商贸（中财）", "phones": []}, {"code": "099", "name": "成都佳苑环保科技有限公司", "phones": []}, {"code": "100", "name": "三立雨鞋（俊翔雨靴）", "phones": []}, {"code": "101", "name": "揭阳市德胜塑料实业有限公司", "phones": []}, {"code": "103", "name": "堆龙德庆区吴小瓷砖经营部", "phones": []}, {"code": "104", "name": "平邑县明轩劳保制品厂", "phones": []}, {"code": "105", "name": "山东临沂永顺建筑工具泥桶厂", "phones": []}, {"code": "106", "name": "龙大胶业", "phones": []}, {"code": "107", "name": "河北福都索具", "phones": []}, {"code": "108", "name": "乐洁家居日用品有限公司", "phones": []}, {"code": "109", "name": "河北充电夹地线夹打火线厂", "phones": []}, {"code": "110", "name": "四川华尔利金属制品有限公司", "phones": []}, {"code": "111", "name": "四川盛景合创科技有限公司", "phones": []}, {"code": "112", "name": "山东鑫力五金工具", "phones": []}, {"code": "113", "name": "腾源金属软管", "phones": []}, {"code": "114", "name": "腾鲁锤具", "phones": []}, {"code": "115", "name": "临沂国祥塑业（水带）", "phones": []}, {"code": "116", "name": "信德五金标准件", "phones": []}, {"code": "117", "name": "西藏润正消防", "phones": []}, {"code": "118", "name": "河北五金标准件", "phones": []}, {"code": "119", "name": "大地仪器", "phones": []}, {"code": "120", "name": "临沂东湖雨-上海盾立", "phones": []}, {"code": "121", "name": "恒译安全带", "phones": []}, {"code": "122", "name": "临沂智鑫工具有限公司", "phones": []}, {"code": "123", "name": "西藏元吉金属管业", "phones": []}, {"code": "124", "name": "高新商贸", "phones": []}, {"code": "126", "name": "山东新诚电力电器有限公司", "phones": []}, {"code": "127", "name": "成都龙鑫包装机械有限公司（成都市金牛区智刚包装机械经营部）", "phones": []}, {"code": "128", "name": "铭泽防护（工具包 电焊面罩 眼镜）", "phones": []}, {"code": "129", "name": "临沂门轴合页滑轮", "phones": []}, {"code": "130", "name": "懿豪建材", "phones": []}, {"code": "132", "name": "乐清科羽电气有限公司(小黄鱼)", "phones": []}, {"code": "133", "name": "河北金衍鑫供应链管理有限公司（手扳葫芦）", "phones": []}, {"code": "134", "name": "福象牌尼龙扎带", "phones": []}, {"code": "135", "name": "网天下筛网", "phones": []}, {"code": "136", "name": "西藏定都消防科技有限公司", "phones": []}, {"code": "138", "name": "雅腾五金建材机电", "phones": []}, {"code": "139", "name": "邯郸市泽天紧固件有限公司", "phones": []}, {"code": "141", "name": "哈轴轴承经营部", "phones": []}, {"code": "142", "name": "河南新乡铁丝厂", "phones": []}, {"code": "143", "name": "奇安五金工具厂", "phones": []}, {"code": "144", "name": "双天电力铜鼻子", "phones": []}, {"code": "145", "name": "超级大洋五金工具锻压厂", "phones": []}, {"code": "146", "name": "顺工五金工具制造有限公司", "phones": []}, {"code": "147", "name": "友兴建材", "phones": []}, {"code": "148", "name": "王浩锯片五金", "phones": []}, {"code": "149", "name": "勃塑管道", "phones": []}, {"code": "150", "name": "拉萨水带管子配件批发", "phones": []}, {"code": "151", "name": "成都三龙起重", "phones": []}, {"code": "152", "name": "兴农农资", "phones": []}, {"code": "153", "name": "西藏弘程工贸有限公司", "phones": []}, {"code": "154", "name": "西藏通达防水商贸", "phones": []}, {"code": "155", "name": "木方厂家", "phones": []}, {"code": "156", "name": "新旭电气", "phones": []}, {"code": "157", "name": "西藏路交安", "phones": []}, {"code": "159", "name": "湘能电力", "phones": []}, {"code": "160", "name": "鑫宏针织品批发部", "phones": []}, {"code": "161", "name": "伦士发劳保防护用品", "phones": []}, {"code": "162", "name": "贵州天涂豪邦涂料", "phones": []}, {"code": "163", "name": "城北忠强日化百货商行", "phones": []}, {"code": "164", "name": "幸福人高低床", "phones": []}, {"code": "165", "name": "德一电气", "phones": []}, {"code": "166", "name": "城西鑫闽元消防门市", "phones": []}, {"code": "167", "name": "四川咏旭建工有限公司", "phones": []}, {"code": "168", "name": "青羊区品智国光园林机械经营部", "phones": []}, {"code": "171", "name": "昌乐新明泽塑业股份有限公司", "phones": []}, {"code": "172", "name": "潍坊治业塑料有限公司", "phones": []}, {"code": "180", "name": "堆龙盛力五金经营部", "phones": []}, {"code": "181", "name": "展图胶枪厂", "phones": []}, {"code": "182", "name": "三江塑料", "phones": []}, {"code": "183", "name": "永封生料带厂", "phones": []}, {"code": "185", "name": "西藏红烈筛网大全（堆龙安丰筛网）", "phones": []}, {"code": "187", "name": "西藏景凯酒店用品有限公司", "phones": []}, {"code": "188", "name": "西藏荣辰金顿商贸有限公司", "phones": []}, {"code": "189", "name": "临沂致衡五金工具有限公司", "phones": []}, {"code": "190", "name": "惠通五金机电", "phones": []}, {"code": "191", "name": "金山钢材", "phones": []}, {"code": "192", "name": "临沂程峰五金", "phones": []}, {"code": "193", "name": "拉萨冀升斗车脚手架厂", "phones": []}, {"code": "195", "name": "鑫三矿山物资", "phones": []}, {"code": "196", "name": "拉萨堆龙德庆区京楠保温材料经营部（个体工商户）", "phones": []}];
+const E_ACCT=[{"code": "1001", "name": "现金", "category": "资产"}, {"code": "1002", "name": "银行存款", "category": "资产"}, {"code": "100201", "name": "中合五金-建行拉萨北京中路支行", "category": "资产"}, {"code": "100202", "name": "工行8810-徐凤霞", "category": "资产"}, {"code": "100203", "name": "建行0085-徐凤霞", "category": "资产"}, {"code": "100204", "name": "鑫业商贸部-建行5035", "category": "资产"}, {"code": "100205", "name": "鑫启航供应链-建行", "category": "资产"}, {"code": "100206", "name": "2176西藏银行-刘义虎", "category": "资产"}, {"code": "1009", "name": "其他货币资金", "category": "资产"}, {"code": "100901", "name": "毕总微信", "category": "资产"}, {"code": "100902", "name": "备用金", "category": "资产"}, {"code": "1131", "name": "应收账款", "category": "资产"}, {"code": "1133", "name": "其他应收款", "category": "资产"}, {"code": "113301", "name": "员工借款", "category": "资产"}, {"code": "113302", "name": "厂房押金", "category": "资产"}, {"code": "113303", "name": "液化气押金", "category": "资产"}, {"code": "113304", "name": "宿舍押金", "category": "资产"}, {"code": "113305", "name": "水桶押金", "category": "资产"}, {"code": "113306", "name": "其他", "category": "资产"}, {"code": "113307", "name": "周成红", "category": "资产"}, {"code": "113308", "name": "刘义虎", "category": "资产"}, {"code": "113309", "name": "米林租房押金", "category": "资产"}, {"code": "113310", "name": "代垫员工房租", "category": "资产"}, {"code": "1151", "name": "预付账款", "category": "资产"}, {"code": "1243", "name": "库存商品", "category": "资产"}, {"code": "124301", "name": "货款", "category": "资产"}, {"code": "124302", "name": "运费", "category": "资产"}, {"code": "1301", "name": "待摊费用", "category": "资产"}, {"code": "130101", "name": "软件使用费", "category": "资产"}, {"code": "130102", "name": "员工宿舍房租", "category": "资产"}, {"code": "130103", "name": "厂房房租", "category": "资产"}, {"code": "130104", "name": "装修费", "category": "资产"}, {"code": "130105", "name": "广告费", "category": "资产"}, {"code": "130106", "name": "米林房租", "category": "资产"}, {"code": "130107", "name": "3.23开业招商会费用", "category": "资产"}, {"code": "1501", "name": "固定资产", "category": "资产"}, {"code": "1502", "name": "累计折旧", "category": "资产"}, {"code": "1806", "name": "待处理财产损益", "category": "资产"}, {"code": "2101", "name": "短期借款", "category": "负债"}, {"code": "210101", "name": "成都汇竞汽车贸易有限公司", "category": "负债"}, {"code": "2103", "name": "应付账款", "category": "负债"}, {"code": "210301", "name": "货款", "category": "负债"}, {"code": "2104", "name": "预收账款", "category": "负债"}, {"code": "2151", "name": "应付工资", "category": "负债"}, {"code": "2171", "name": "应交税金", "category": "负债"}, {"code": "217101", "name": "应交增值税", "category": "负债"}, {"code": "21710102", "name": "已交税金", "category": "负债"}, {"code": "217112", "name": "应交个人所得税", "category": "负债"}, {"code": "2181", "name": "其他应付款", "category": "负债"}, {"code": "218101", "name": "租房押金", "category": "负债"}, {"code": "218102", "name": "借款", "category": "负债"}, {"code": "21810201", "name": "徐凤霞", "category": "负债"}, {"code": "218103", "name": "信天宇软件公司", "category": "负债"}, {"code": "218104", "name": "待核实款项", "category": "负债"}, {"code": "218105", "name": "成都汇竞汽车贸易有限公司", "category": "负债"}, {"code": "218106", "name": "程缸保证金", "category": "负债"}, {"code": "218107", "name": "其他待付款", "category": "负债"}, {"code": "3101", "name": "实收资本", "category": "权益"}, {"code": "310101", "name": "成都集沛商业运营管理有限公司", "category": "权益"}, {"code": "310102", "name": "毕磊", "category": "权益"}, {"code": "310103", "name": "李洪强", "category": "权益"}, {"code": "310104", "name": "刘川", "category": "权益"}, {"code": "310105", "name": "西藏国盈企业管理咨询有限公司", "category": "权益"}, {"code": "3131", "name": "本年利润", "category": "权益"}, {"code": "5401", "name": "主营业务成本", "category": "成本"}, {"code": "5402", "name": "主营业务税金及附加", "category": "成本"}, {"code": "5101", "name": "主营业务收入", "category": "损益"}, {"code": "5301", "name": "营业外收入", "category": "损益"}, {"code": "530101", "name": "罚款", "category": "损益"}, {"code": "530102", "name": "确实无法支付的应付款项", "category": "损益"}, {"code": "530103", "name": "其他收入", "category": "损益"}, {"code": "5501", "name": "销售费用", "category": "损益"}, {"code": "550101", "name": "运费", "category": "损益"}, {"code": "5502", "name": "管理费用", "category": "损益"}, {"code": "550201", "name": "办公费", "category": "损益"}, {"code": "550202", "name": "折旧费", "category": "损益"}, {"code": "550203", "name": "运费", "category": "损益"}, {"code": "550204", "name": "厂房房租", "category": "损益"}, {"code": "550205", "name": "生活费", "category": "损益"}, {"code": "550206", "name": "车辆--油费（禁用）", "category": "损益"}, {"code": "55020601", "name": "油费（禁用）", "category": "损益"}, {"code": "550207", "name": "车辆维修费", "category": "损益"}, {"code": "550208", "name": "车辆保险费", "category": "损益"}, {"code": "550209", "name": "业务招待费", "category": "损益"}, {"code": "550210", "name": "通讯网络费", "category": "损益"}, {"code": "550211", "name": "卸货搬运费", "category": "损益"}, {"code": "550212", "name": "软件费用", "category": "损益"}, {"code": "550213", "name": "宿舍房租", "category": "损益"}, {"code": "550214", "name": "住宿费", "category": "损益"}, {"code": "550215", "name": "叉车加油费", "category": "损益"}, {"code": "550216", "name": "广告宣传费", "category": "损益"}, {"code": "550217", "name": "福利费", "category": "损益"}, {"code": "550218", "name": "停车费", "category": "损益"}, {"code": "550219", "name": "低值易耗品", "category": "损益"}, {"code": "550220", "name": "发票税点", "category": "损益"}, {"code": "550221", "name": "工资", "category": "损益"}, {"code": "550222", "name": "厂家业务费", "category": "损益"}, {"code": "550223", "name": "代理服务费", "category": "损益"}, {"code": "550224", "name": "员工奖励", "category": "损益"}, {"code": "550225", "name": "销售促销费", "category": "损益"}, {"code": "550226", "name": "折扣优惠", "category": "损益"}, {"code": "550227", "name": "社会保险费", "category": "损益"}, {"code": "550228", "name": "公积金", "category": "损益"}, {"code": "550229", "name": "车辆购置税费用", "category": "损益"}, {"code": "550230", "name": "印花税", "category": "损益"}, {"code": "550231", "name": "车辆油费", "category": "损益"}, {"code": "550232", "name": "租车租金", "category": "损益"}, {"code": "550233", "name": "业务费返点", "category": "损益"}, {"code": "550234", "name": "水电费", "category": "损益"}, {"code": "550235", "name": "交通费", "category": "损益"}, {"code": "550236", "name": "差旅费", "category": "损益"}, {"code": "5503", "name": "财务费用", "category": "损益"}, {"code": "550301", "name": "手续费", "category": "损益"}, {"code": "550302", "name": "利息", "category": "损益"}, {"code": "550303", "name": "现金折扣", "category": "损益"}, {"code": "5504", "name": "营业外支出", "category": "损益"}, {"code": "550401", "name": "非常损失", "category": "损益"}];
+
+// 非货款关键词→科目映射
+const NS_MAP=[
+  {kw:['罚款'],acct:'530101',acctN:'营业外收入-罚款',aux:'none'},
+  {kw:['工资退回','工资已退回','退回工资'],acct:'2151',acctN:'应付工资',aux:'none'},
+  {kw:['还借款','还公司借款'],acct:'113301',acctN:'其他应收款-员工借款',aux:'staff'},
+  {kw:['手续费'],acct:'550301',acctN:'财务费用-手续费',aux:'none'},
+  {kw:['利息'],acct:'550302',acctN:'财务费用-利息',aux:'none'},
+  {kw:['退款','退回差价','退回的','退差价'],acct:'210301',acctN:'应付账款-货款',aux:'supplier'},
+  {kw:['税点'],acct:'5101',acctN:'主营业务收入',aux:'customer'},
+  {kw:['押金','保证金'],acct:'113302',acctN:'其他应收款-厂房押金',aux:'none'},
+  {kw:['充值'],acct:'1131',acctN:'应收账款',aux:'customer'},
+];
+
+// 常用科目
+const ACCTS=[
+  {c:'1131',n:'应收账款',aux:'customer'},
+  {c:'5101',n:'主营业务收入',aux:'customer'},
+  {c:'2103',n:'应付账款',aux:'supplier'},
+  {c:'210301',n:'应付账款-货款',aux:'supplier'},
+  {c:'530101',n:'营业外收入-罚款',aux:'none'},
+  {c:'530103',n:'营业外收入-其他收入',aux:'none'},
+  {c:'550301',n:'财务费用-手续费',aux:'none'},
+  {c:'550302',n:'财务费用-利息',aux:'none'},
+  {c:'113301',n:'其他应收款-员工借款',aux:'staff'},
+  {c:'2151',n:'应付工资',aux:'none'},
+  {c:'113302',n:'其他应收款-厂房押金',aux:'none'},
+  {c:'550226',n:'管理费用-折扣优惠',aux:'none'},
+  {c:'550209',n:'管理费用-业务招待费',aux:'staff'},
+  {c:'5503',n:'财务费用',aux:'none'},
+  {c:'550401',n:'营业外支出-非常损失',aux:'none'},
+];
+
+// 业务员名字列表（摘要中常见的业务员前缀）
+const SALESMEN=['周成红','梅恒','李裕岭','韦东秋','韦德','刘义虎','徐凤霞','谢明明','刘思思','唐靖'];
+
+let custs=[],supps=[],accts=[];
+let recs=[];
+let curF='all',curP=1;
+const PS=50;
+let editIdx=-1;
+
+// === 初始化 ===
+function init(){
+  const s=localStorage.getItem('vmt_data');
+  if(s){try{const d=JSON.parse(s);custs=d.c||[];supps=d.s||[];accts=d.a||[];showDone();return}catch(e){}}
+  loadEmbed();
+}
+function loadEmbed(){custs=[...E_CUST];supps=[...E_SUPP];accts=[...E_ACCT];saveL();showDone();}
+function saveL(){localStorage.setItem('vmt_data',JSON.stringify({c:custs,s:supps,a:accts}));}
+function showDone(){
+  document.getElementById('initUpload').classList.add('hidden');
+  document.getElementById('initDone').classList.remove('hidden');
+  document.getElementById('initInfo').textContent=custs.length+'个客户 · '+supps.length+'个供应商 · '+accts.length+'个科目';
+  document.getElementById('sCust').textContent='客户:'+custs.length;
+  document.getElementById('sSupp').textContent='供应商:'+supps.length;
+  document.getElementById('sAcct').textContent='科目:'+accts.length;
+  document.getElementById('workArea').classList.remove('hidden');
+}
+function resetInit(){if(confirm('确定清除基础数据？')){localStorage.removeItem('vmt_data');document.getElementById('initUpload').classList.remove('hidden');document.getElementById('initDone').classList.add('hidden');document.getElementById('workArea').classList.add('hidden');}}
+
+// === 上传基础文件 ===
+const initZ=document.getElementById('initZone'),initFI=document.getElementById('initFI');
+initZ.onclick=()=>initFI.click();
+initZ.ondragover=e=>{e.preventDefault();initZ.classList.add('active')};
+initZ.ondragleave=()=>initZ.classList.remove('active');
+initZ.ondrop=e=>{e.preventDefault();initZ.classList.remove('active');handleInit(e.dataTransfer.files)};
+initFI.onchange=e=>handleInit(e.target.files);
+
+function handleInit(files){
+  let done=0;custs=[];supps=[];accts=[];
+  for(let f of files){
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const d=XLSX.utils.sheet_to_json(ws,{header:1});
+        for(let row of d){
+          const code=String(row[0]||'').trim(),name=String(row[1]||'').trim();
+          if(code==='1131'&&name.includes('应收账款_')){const p=name.split('_',3);if(p.length>=3){custs.push({code:p[1],name:p[2],phones:xPh(p[2])})}}
+          if(code==='210301'&&name.includes('货款_')){const p=name.split('_',3);if(p.length>=3){supps.push({code:p[1],name:p[2],phones:xPh(p[2])})}}
+          if(code&&name&&!name.includes('_')&&!name.startsWith('   ')){accts.push({code,name,cat:''})}
+        }
+      }catch(err){console.error(err)}
+      if(++done===files.length){custs=uniq(custs,c=>c.code);supps=uniq(supps,s=>s.code);accts=uniq(accts,a=>a.code+'|'+a.name);saveL();showDone();}
+    };
+    r.readAsArrayBuffer(f);
+  }
+}
+function uniq(a,k){const s=new Set();return a.filter(x=>{const v=k(x);if(s.has(v))return false;s.add(v);return true})}
+
+// === 上传明细 ===
+const detZ=document.getElementById('detZone'),detFI=document.getElementById('detFI');
+detZ.onclick=()=>detFI.click();
+detZ.ondragover=e=>{e.preventDefault();detZ.classList.add('active')};
+detZ.ondragleave=()=>detZ.classList.remove('active');
+detZ.ondrop=e=>{e.preventDefault();detZ.classList.remove('active');handleDet(e.dataTransfer.files[0])};
+detFI.onchange=e=>handleDet(e.target.files[0]);
+
+function handleDet(file){
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1});
+    recs=[];
+    for(let i=0;i<raw.length;i++){
+      const row=raw[i];if(!row[0]&&!row[1]&&!row[2])continue;
+      let dv=row[0],ds='';
+      if(dv instanceof Date)ds=fmtD(dv);
+      else if(typeof dv==='number'){const d=new Date((dv-25569)*864e5);ds=fmtD(d)}
+      else ds=String(dv||'').replace(/-/g,'').substring(0,8);
+      const sm=String(row[1]||'').trim(),am=parseFloat(row[2])||0;
+      if(sm&&am)recs.push({id:i,date:ds,summary:sm,amount:am,mType:'none',mTarget:'',mCode:'',mName:'',acctC:'',acctN:'',auxType:'',conf:0,isNS:false});
+    }
+    document.getElementById('detInfo').classList.remove('hidden');
+    document.getElementById('detFN').textContent=file.name+' ('+recs.length+'条)';
+    document.getElementById('cfgCard').style.display='';
+    document.getElementById('statsBar').style.display='';
+    document.getElementById('pCard').classList.remove('hidden');
+    document.getElementById('fBar').style.display='';
+    document.getElementById('tblCard').style.display='';
+    reMatch();
+  };
+  r.readAsArrayBuffer(file);
+}
+function clearDet(){recs=[];document.getElementById('detInfo').classList.add('hidden');document.getElementById('cfgCard').style.display='none';document.getElementById('statsBar').style.display='none';document.getElementById('pCard').classList.add('hidden');document.getElementById('fBar').style.display='none';document.getElementById('tblCard').style.display='none';detFI.value='';}
+function fmtD(d){return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')}
+
+// === 手机号提取 ===
+function xPh(t){return(t.match(/1[3-9]\d{9}/g)||[])}
+// 从摘要提取手机号（支持10位和11位）
+function xPhSumm(t){
+  let ph=t.match(/1[3-9]\d{9}/g)||[];
+  // 也提取10位数字（可能缺1）
+  let ph10=t.match(/\d{10}/g)||[];
+  for(let p of ph10){
+    if(p.startsWith('1')&&ph.includes(p))continue;
+    // 尝试加1前缀
+    if(p.length===10){const fp='1'+p;if(!ph.includes(fp))ph.push(fp)}
+  }
+  // 也提取11位数字（可能不是1开头但在名称中是1开头）
+  let ph11=t.match(/\d{11}/g)||[];
+  for(let p of ph11){if(!ph.includes(p))ph.push(p)}
+  return ph;
+}
+
+// === 名称关键词提取 ===
+function xKw(t){
+  let c=t.replace(/1[3-9]\d{9}/g,'').replace(/[\d.]+/g,'').replace(/[（()）+\-，,、元]/g,' ');
+  // 去掉业务员前缀
+  for(let s of SALESMEN)c=c.replace(s,'');
+  // 去掉常见地名前缀
+  const pf=['拉萨市','拉萨城关区','拉萨市城关区','拉萨市堆龙德庆区','日喀则市','日喀则桑珠孜区','日喀则市桑珠孜区','山南市','那曲市','林芝市','阿里地区','阿里地区噶尔县','拉萨市达孜区','拉萨市曲水县','拉萨市当雄县','拉萨市墨竹工卡县','拉萨市林周县','拉萨市尼木县','拉萨市堆龙德庆区羊达街道','拉萨市堆龙德庆区东嘎街道','拉萨市堆龙德庆区乃琼街道','拉萨市城关区纳金街道','拉萨市城关区蔡公堂街道','拉萨市城关区娘热街道','拉萨市城关区扎细街道','拉萨市城关区金珠西路街道','拉萨市城关区嘎玛贡桑街道','拉萨市城关区塔玛街道','拉萨市城关区当热中路','拉萨市城关区川藏公路'];
+  for(let p of pf)c=c.replace(p,' ');
+  return c.split(/\s+/).filter(w=>w.length>=2);
+}
+
+// === 匹配逻辑 ===
+function matchOne(summary, list){
+  const phones=xPhSumm(summary);
+  const kwds=xKw(summary);
+  let best=null,bestS=0;
+  
+  for(let item of list){
+    let s=0;
+    // 手机号匹配（最高优先级）
+    if(phones.length&&item.phones.length){
+      for(let p of phones){
+        if(item.phones.includes(p)){s=100;break}
+        // 也做后8位匹配
+        if(p.length>=8&&item.phones.some(ip=>ip.endsWith(p.slice(-8)))){s=95;break}
+      }
+    }
+    if(s===0){
+      const ic=item.name.replace(/[（）()\s]/g,'');
+      const sc=summary.replace(/[（）()\s]/g,'');
+      // 完全包含
+      if(ic.includes(sc)||sc.includes(ic)){
+        s=Math.min(ic.length,sc.length)/Math.max(ic.length,sc.length)*90;
+      }
+    }
+    if(s===0&&kwds.length){
+      // 关键词匹配
+      const ikwds=xKw(item.name);
+      let m=0;
+      for(let k of kwds){
+        if(k.length>=2&&ikwds.some(ik=>ik.includes(k)||k.includes(ik)))m++;
+      }
+      if(m>0)s=(m/kwds.length)*75;
+      // 逐字匹配
+      if(s===0){
+        const ic2=item.name.replace(/[\d\s（）()]/g,'');
+        const sc2=summary.replace(/[\d\s（）()]/g,'');
+        let cm=0;
+        for(let ch of sc2){if(ic2.includes(ch))cm++}
+        if(cm>0)s=(cm/sc2.length)*50;
+      }
+    }
+    if(s>bestS){bestS=s;best=item}
+  }
+  return best?{code:best.code,name:best.name,conf:Math.round(bestS)}:null;
+}
+
+function reMatch(){
+  const da=document.getElementById('defAcct').value;
+  const daN=da==='1131'?'应收账款':da==='5101'?'主营业务收入':'应付账款';
+  const daAux=da==='1131'||da==='5101'?'customer':'supplier';
+  
+  for(let r of recs){
+    if(r.mType==='manual')continue;
+    const sm=r.summary;
+    
+    // 1. 非货款类
+    let nsM=null;
+    for(let ns of NS_MAP){
+      if(ns.kw.some(k=>sm.includes(k))){nsM=ns;break}
+    }
+    if(nsM){
+      r.isNS=true;r.acctC=nsM.acct;r.acctN=nsM.acctN;r.auxType=nsM.aux;
+      if(nsM.aux==='supplier'){
+        const m=matchOne(sm,supps);
+        if(m){r.mType='auto';r.mTarget='supplier';r.mCode=m.code;r.mName=m.name;r.conf=m.conf}
+        else{r.mType='none';r.mTarget='supplier';r.mCode='';r.mName='';r.conf=0}
+      }else{r.mType='auto';r.mTarget='';r.mCode='';r.mName='';r.conf=100}
+      continue;
+    }
+    
+    // 2. 零散/未知
+    if(sm==='零散客户'||sm==='未知'){
+      r.isNS=false;r.mType='auto';r.mTarget='customer';r.mCode='0001';r.mName='零散客户';
+      r.acctC=da;r.acctN=daN;r.auxType=daAux;r.conf=100;
+      continue;
+    }
+    
+    // 3. 去掉业务员前缀后再匹配
+    let cleanSm=sm;
+    for(let sl of SALESMEN){
+      if(sm.startsWith(sl)){cleanSm=sm.substring(sl.length);break}
+    }
+    
+    // 4. 匹配客户
+    const cm=matchOne(sm,custs);
+    const cm2=cleanSm!==sm?matchOne(cleanSm,custs):null;
+    let bestCm=cm;
+    if(cm2&&cm2.conf>(cm?cm.conf:0))bestCm=cm2;
+    
+    if(bestCm&&bestCm.conf>=50){
+      r.isNS=false;r.mType='auto';r.mTarget='customer';r.mCode=bestCm.code;r.mName=bestCm.name;
+      r.acctC=da;r.acctN=daN;r.auxType='customer';r.conf=bestCm.conf;
+      continue;
+    }
+    
+    // 5. 未匹配
+    r.isNS=false;r.mType='none';r.mTarget='customer';r.mCode='';r.mName='';
+    r.acctC=da;r.acctN=daN;r.auxType='customer';r.conf=bestCm?bestCm.conf:0;
+  }
+  updStats();render();
+}
+
+// === 统计 ===
+function updStats(){
+  const t=recs.length,m=recs.filter(r=>r.mType!=='none').length,u=t-m;
+  const a=recs.reduce((s,r)=>s+r.amount,0);
+  document.getElementById('nTotal').textContent=t;
+  document.getElementById('nMatched').textContent=m;
+  document.getElementById('nUnmatch').textContent=u;
+  document.getElementById('nAmt').textContent=a.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const p=t>0?Math.round(m/t*100):0;
+  document.getElementById('pTxt').textContent=p+'%';
+  document.getElementById('pFill').style.width=p+'%';
+}
+
+// === 筛选 ===
+function setF(f,btn){curF=f;curP=1;document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');render()}
+function getFiltered(){
+  const q=document.getElementById('sInp').value.trim().toLowerCase();
+  return recs.filter(r=>{
+    if(curF==='matched'&&r.mType==='none')return false;
+    if(curF==='unmatched'&&r.mType!=='none')return false;
+    if(curF==='nonsales'&&!r.isNS)return false;
+    if(q){const t=(r.summary+' '+r.mName+' '+r.acctN).toLowerCase();if(!t.includes(q))return false}
+    return true;
+  });
+}
+
+// === 渲染表格 ===
+function render(){
+  const fl=getFiltered(),tp=Math.ceil(fl.length/PS);
+  if(curP>tp)curP=Math.max(1,tp);
+  const st=(curP-1)*PS,pd=fl.slice(st,st+PS);
+  let h='';
+  for(let r of pd){
+    const rc=r.mType==='auto'?'matched':r.mType==='manual'?'manual':'unmatched';
+    const bc=r.mType==='auto'?'auto':r.mType==='manual'?'manual':'none';
+    const bt=r.mType==='auto'?'自动✓':r.mType==='manual'?'手动✓':'待确认';
+    const dd=r.date?r.date.substring(0,4)+'.'+r.date.substring(4,6)+'.'+r.date.substring(6,8):'';
+    const selList=r.mTarget==='supplier'?supps:custs;
+    
+    h+='<tr class="'+rc+'"><td style="color:var(--text-sec);font-size:10px">'+(r.id+1)+'</td><td class="date-cell">'+dd+'</td>';
+    h+='<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.summary)+'">'+esc(r.summary)+'</td>';
+    h+='<td class="amount">'+r.amount.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>';
+    h+='<td><span class="badge '+bc+'">'+bt+'</span>'+((r.conf>0&&r.conf<100)?'<br><span style="font-size:9px;color:var(--text-sec)">'+r.conf+'%</span>':'')+'</td>';
+    h+='<td><select class="acct-sel" onchange="chgAcct('+r.id+',this.value)">'+ACCTS.map(a=>'<option value="'+a.c+'"'+(a.c===r.acctC?' selected':'')+'>'+a.c+' '+a.n+'</option>').join('')+'</select></td>';
+    h+='<td><select class="cust-sel" onchange="chgMatch('+r.id+',this.value)"><option value="">-- 选择 --</option>';
+    for(let it of selList){h+='<option value="'+it.code+'"'+(it.code===r.mCode?' selected':'')+'>'+it.code+' '+it.name.substring(0,22)+'</option>'}
+    h+='</select></td>';
+    h+='<td style="font-family:monospace;font-size:10px">'+(r.mCode||'-')+'</td>';
+    h+='<td><button class="btn btn-o btn-sm" onclick="openAdd('+r.id+')" title="新增">➕</button></td></tr>';
+  }
+  document.getElementById('tBody').innerHTML=h;
+  // 分页
+  let ph='<button '+(curP<=1?'disabled':'')+' onclick="curP--;render()">◀</button>';
+  const sp=Math.max(1,curP-3),ep=Math.min(tp,curP+3);
+  for(let p=sp;p<=ep;p++)ph+='<button class="'+(p===curP?'active':'')+'" onclick="curP='+p+';render()">'+p+'</button>';
+  ph+='<button '+(curP>=tp?'disabled':'')+' onclick="curP++;render()">▶</button>';
+  ph+='<span style="font-size:11px;color:var(--text-sec);margin-left:6px">'+(st+1)+'-'+Math.min(st+PS,fl.length)+'/'+fl.length+'</span>';
+  document.getElementById('pag').innerHTML=ph;
+}
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+// === 手动操作 ===
+function chgAcct(id,v){
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  const a=ACCTS.find(x=>x.c===v);
+  if(a){r.acctC=a.c;r.acctN=a.n;r.auxType=a.aux;if(a.aux==='supplier')r.mTarget='supplier';else if(a.aux==='customer')r.mTarget='customer';r.mType=r.mCode?'manual':'none';updStats();render()}
+}
+function chgMatch(id,v){
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  if(!v){r.mCode='';r.mName='';r.mType='none';r.conf=0}
+  else{let f=null;if(r.mTarget==='supplier')f=supps.find(x=>x.code===v);else f=custs.find(x=>x.code===v);
+  if(f){r.mCode=f.code;r.mName=f.name;r.mType='manual';r.conf=100}}
+  updStats();render();
+}
+
+// === 新增客户/供应商 ===
+function openAdd(id){editIdx=id;const r=recs.find(x=>x.id===id);document.getElementById('addType').value=r.mTarget==='supplier'?'supplier':'customer';document.getElementById('addName').value=r.summary.replace(/[（(].+?[)）]/g,'').trim();document.getElementById('addCode').value='';document.getElementById('addModal').classList.remove('hidden')}
+function closeAdd(){document.getElementById('addModal').classList.add('hidden')}
+function confirmAdd(){
+  const c=document.getElementById('addCode').value.trim(),n=document.getElementById('addName').value.trim(),t=document.getElementById('addType').value;
+  if(!c||!n){alert('编码和名称不能为空');return}
+  const ph=xPh(n);
+  if(t==='customer'){if(custs.find(x=>x.code===c)){alert('编码已存在');return}custs.push({code:c,name:n,phones:ph})}
+  else{if(supps.find(x=>x.code===c)){alert('编码已存在');return}supps.push({code:c,name:n,phones:ph})}
+  saveL();
+  const r=recs.find(x=>x.id===editIdx);
+  if(r){r.mCode=c;r.mName=n;r.mTarget=t==='customer'?'customer':'supplier';r.mType='manual';r.conf=100;updStats();render()}
+  closeAdd();
+  document.getElementById('sCust').textContent='客户:'+custs.length;
+  document.getElementById('sSupp').textContent='供应商:'+supps.length;
+}
+
+// === 导出 ===
+function doExport(){
+  const isR=document.getElementById('vType').value==='receive';
+  const bkC=document.getElementById('bankAcct').value;
+  const bkN=document.getElementById('bankAcct').selectedOptions[0].textContent.replace(/^\d+\s/,'');
+  const vw=isR?'收':'付';
+  
+  const um=recs.filter(r=>r.mType==='none');
+  if(um.length>0&&!confirm('还有'+um.length+'条未匹配记录，辅助核算编码将留空。确定导出？'))return;
+  
+  const h1=['录凭证 # gl_voucher','','','','','单据体 # entries'];
+  const h2=['请将鼠标移到灰色标题行查看字段录入要求'];
+  const h3=['*记账日期： # date','*凭证字号：.名称 # groupid.name','凭证号 # number','附件： # attachments','备注： # remark','摘要 # explanation','*科目.编码 # account.number','科目.名称 # account.name','数量 # quantity','单位.名称 # measureunit.name','单价 # price','*币别.编码 # currency.number','币别.名称 # currency.name','*汇率 # exchangerate','原币金额 # amountfor','借方 # debitamount','贷方 # creditamount','辅助核算.客户.编码 # detailid.number','辅助核算.客户.名称 # detailid.name','辅助核算.供应商.编码 # detailid.number','辅助核算.供应商.名称 # detailid.name','辅助核算.部门.编码 # detailid.number','辅助核算.部门.名称 # detailid.name','辅助核算.职员.编码 # detailid.number','辅助核算.职员.名称 # detailid.name','辅助核算.商品.编码 # detailid.number','辅助核算.商品.名称 # detailid.name','辅助核算.仓库.编码 # detailid.number','辅助核算.仓库.名称 # detailid.name','辅助核算.品牌.编码 # detailid.number','辅助核算.品牌.名称 # detailid.name','辅助核算.收入类别.编码 # detailid.number','辅助核算.收入类别.名称 # detailid.name','辅助核算.支出类别.编码 # detailid.number','辅助核算.支出类别.名称 # detailid.name','辅助核算.账户.编码 # detailid.number','辅助核算.账户.名称 # detailid.number'];
+  
+  const rows=[];let vn=1;
+  for(let r of recs){
+    const dt=r.date;
+    const smr=dt.substring(0,4)+'.'+dt.substring(4,6)+'.'+dt.substring(6,8)+bkN+(isR?'收':'付')+(r.mName||r.summary.substring(0,12))+r.amount+'元';
+    const smrS=smr.substring(0,60);
+    
+    // 借方行
+    const dr=new Array(37).fill('');
+    dr[0]=dt;dr[1]=vw;dr[2]=vn;dr[5]=smrS;dr[6]=bkC;dr[7]=bkN;dr[11]='CNY';dr[13]=1;
+    dr[isR?15:16]=r.amount;
+    rows.push(dr);
+    
+    // 贷方行
+    const cr=new Array(37).fill('');
+    cr[0]=dt;cr[1]=vw;cr[2]=vn;cr[5]=smrS;cr[6]=r.acctC;cr[7]=r.acctN;cr[11]='CNY';cr[13]=1;
+    cr[isR?16:15]=r.amount;
+    if(r.auxType==='customer'&&r.mCode){cr[17]=r.mCode;cr[18]=r.mName}
+    else if(r.auxType==='supplier'&&r.mCode){cr[19]=r.mCode;cr[20]=r.mName}
+    rows.push(cr);
+    vn++;
+  }
+  
+  const wsD=[h1,h2,h3,...rows];
+  const ws=XLSX.utils.aoa_to_sheet(wsD);
+  ws['!cols']=[{wch:12},{wch:8},{wch:8},{wch:8},{wch:8},{wch:40},{wch:12},{wch:20},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12},{wch:14},{wch:14},{wch:14},{wch:20},{wch:14},{wch:20},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'sheet1（名称勿改）');
+  XLSX.writeFile(wb,'凭证导入_'+(isR?'收款':'付款')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+init();
+</script>
+</body>
+</html>
