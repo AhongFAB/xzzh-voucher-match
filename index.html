@@ -125,9 +125,10 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 <div class="card-hd"><h2>⚙️ 凭证配置</h2></div>
 <div class="card-bd">
 <div style="display:flex;gap:20px;flex-wrap:wrap">
-<div class="fg" style="margin:0"><label>凭证类型</label><select id="vType" onchange="reMatch()"><option value="receive">收款凭证</option><option value="pay">付款凭证</option></select></div>
+<div class="fg" style="margin:0"><label>凭证字号</label><select id="vType" onchange="reMatch()"><option value="receive">收</option><option value="pay">付</option><option value="transfer">转</option></select></div>
+<div class="fg" style="margin:0"><label>编号起始</label><input type="number" id="vNumStart" value="1" min="1" style="width:80px"></div>
 <div class="fg" style="margin:0"><label>银行科目</label><select id="bankAcct"><option value="">-- 请先上传科目数据 --</option></select></div>
-<div class="fg" style="margin:0"><label>默认货款科目</label><select id="defAcct"><option value="1131">1131 应收账款（挂客户）</option><option value="5101">5101 主营业务收入（挂客户）</option><option value="2103">2103 应付账款（挂供应商）</option></select></div>
+<div class="fg" style="margin:0"><label>默认货款科目</label><div class="cust-sel" style="min-width:200px"><input class="cust-inp" id="defAcctInp" value="" placeholder="输入编码或名称搜索..." onfocus="showDefAcctDD(this)" oninput="filterDefAcctDD(this)" onblur="hideDefAcctDD()"><div class="cust-dd" id="defAcctDD" style="min-width:350px"></div></div></div>
 </div>
 </div>
 </div>
@@ -282,6 +283,11 @@ function showDone(){
   document.getElementById('initDone').classList.remove('hidden');
   document.getElementById('initInfo').textContent=custs.length+'个客户 · '+supps.length+'个供应商 · '+accts.length+'个科目';
   document.getElementById('workArea').classList.remove('hidden');
+  // Set default defAcct input
+  if(!document.getElementById('defAcctInp').value){
+    const daA=ACCTS.find(a=>a.c==='1131');
+    if(daA){defAcctVal='1131';document.getElementById('defAcctInp').value='1131 '+daA.n;}
+  }
 }
 function resetInit(){
   if(confirm('确定清除所有基础数据？')){
@@ -556,9 +562,10 @@ function matchOne(summary, list){
 }
 
 function reMatch(){
-  const da=document.getElementById('defAcct').value;
-  const daN=da==='1131'?'应收账款':da==='5101'?'主营业务收入':'应付账款';
-  const daAux=da==='1131'||da==='5101'?'customer':'supplier';
+  const da=getDefAcct();
+  const daA=ACCTS.find(a=>a.c===da);
+  const daN=daA?daA.n:'应收账款';
+  const daAux=daA?daA.aux:'customer';
   
   for(let r of recs){
     if(r.mType==='manual')continue;
@@ -654,7 +661,10 @@ function render(){
     h+='<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.summary)+'">'+esc(r.summary)+'</td>';
     h+='<td class="amount">'+r.amount.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>';
     h+='<td><span class="badge '+bc+'">'+bt+'</span>'+((r.conf>0&&r.conf<100)?'<br><span style="font-size:9px;color:var(--text-sec)">'+r.conf+'%</span>':'')+'</td>';
-    h+='<td><select class="acct-sel" onchange="chgAcct('+r.id+',this.value)">'+ACCTS.map(a=>'<option value="'+a.c+'"'+(a.c===r.acctC?' selected':'')+'>'+a.c+' '+a.n+'</option>').join('')+'</select></td>';
+    {
+    const curAcctDisp=r.acctC?r.acctC+' '+r.acctN:'';
+    h+='<td class="cust-sel"><input class="cust-inp" value="'+esc(curAcctDisp)+'" placeholder="搜索科目..." onfocus="showAcctDD('+r.id+',this)" oninput="filterAcctDD('+r.id+',this)" onblur="hideAcctDD('+r.id+')"><div class="cust-dd" id="add_'+r.id+'" style="min-width:350px"></div></td>';
+}
     const curDisp=r.mCode?r.mCode+' '+(r.mName||''):'';
     h+='<td class="cust-sel"><input class="cust-inp" value="'+esc(curDisp)+'" placeholder="输入搜索..." onfocus="showAC('+r.id+',this)" oninput="filterAC('+r.id+',this)" onblur="hideAC('+r.id+')"><div class="cust-dd" id="dd_'+r.id+'"></div></td>';
     h+='<td style="font-family:monospace;font-size:10px">'+(r.mCode||'-')+'</td>';
@@ -671,12 +681,64 @@ function render(){
 }
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
+
+// === 科目搜索下拉 ===
+function showAcctDD(id,inp){filterAcctDD(id,inp);}
+function hideAcctDD(id){setTimeout(()=>{const dd=document.getElementById('add_'+id);if(dd)dd.classList.remove('show')},200);}
+function filterAcctDD(id,inp){
+  const q=inp.value.trim().toLowerCase();
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  let filtered=ACCTS;
+  if(q){filtered=ACCTS.filter(a=>(a.c+' '+a.n).toLowerCase().includes(q));}
+  filtered=filtered.slice(0,50);
+  const dd=document.getElementById('add_'+id);if(!dd)return;
+  if(filtered.length===0){
+    dd.innerHTML='<div class="cust-dd-empty">未找到匹配科目</div>';
+  }else{
+    dd.innerHTML=filtered.map(a=>'<div class="cust-dd-item" onmousedown="pickAcctDD('+id+',\''+a.c+'\',\''+esc(a.n).replace(/'/g,"\\'")+'\',\''+a.aux+'\')"><span class="code">'+a.c+'</span><span class="name">'+esc(a.n)+'</span></div>').join('');
+  }
+  dd.classList.add('show');
+}
+function pickAcctDD(id,code,name,aux){
+  const r=recs.find(x=>x.id===id);if(!r)return;
+  r.acctC=code;r.acctN=name;r.auxType=aux;
+  if(aux==='supplier')r.mTarget='supplier';
+  else if(aux==='customer')r.mTarget='customer';
+  r.mType=r.mCode?'manual':'none';
+  updStats();render();
+}
+
+// === 默认货款科目搜索下拉 ===
+let defAcctVal='1131';
+function showDefAcctDD(inp){filterDefAcctDD(inp);}
+function hideDefAcctDD(){setTimeout(()=>{const dd=document.getElementById('defAcctDD');if(dd)dd.classList.remove('show')},200);}
+function filterDefAcctDD(inp){
+  const q=inp.value.trim().toLowerCase();
+  let filtered=ACCTS;
+  if(q){filtered=ACCTS.filter(a=>(a.c+' '+a.n).toLowerCase().includes(q));}
+  filtered=filtered.slice(0,50);
+  const dd=document.getElementById('defAcctDD');if(!dd)return;
+  if(filtered.length===0){
+    dd.innerHTML='<div class="cust-dd-empty">未找到匹配科目</div>';
+  }else{
+    dd.innerHTML=filtered.map(a=>'<div class="cust-dd-item" onmousedown="pickDefAcct(\''+a.c+'\',\''+esc(a.n).replace(/'/g,"\\'")+'\',\''+a.aux+'\')"><span class="code">'+a.c+'</span><span class="name">'+esc(a.n)+'</span><span style="color:var(--text-sec);font-size:10px;margin-left:auto">aux:'+a.aux+'</span></div>').join('');
+  }
+  dd.classList.add('show');
+}
+function pickDefAcct(code,name,aux){
+  defAcctVal=code;
+  document.getElementById('defAcctInp').value=code+' '+name;
+  document.getElementById('defAcctDD').classList.remove('show');
+  reMatch();
+}
+
 // === 手动操作 ===
 function chgAcct(id,v){
   const r=recs.find(x=>x.id===id);if(!r)return;
   const a=ACCTS.find(x=>x.c===v);
   if(a){r.acctC=a.c;r.acctN=a.n;r.auxType=a.aux;if(a.aux==='supplier')r.mTarget='supplier';else if(a.aux==='customer')r.mTarget='customer';r.mType=r.mCode?'manual':'none';updStats();render()}
 }
+function getDefAcct(){return defAcctVal||'1131';}
 function chgMatch(id,v){
   const r=recs.find(x=>x.id===id);if(!r)return;
   if(!v){r.mCode='';r.mName='';r.mType='none';r.conf=0}
@@ -758,19 +820,22 @@ function confirmAdd(){
 
 // === 导出 ===
 function doExport(){
-  const isR=document.getElementById('vType').value==='receive';
+  const vTypeVal=document.getElementById('vType').value;
+  const isR=vTypeVal==='receive';
+  const isTransfer=vTypeVal==='transfer';
   const bkC=document.getElementById('bankAcct').value;
-  const bkN=document.getElementById('bankAcct').selectedOptions[0].textContent.replace(/^\d+\s/,'');
-  const vw=isR?'收':'付';
+  const bkN=document.getElementById('bankAcct').selectedOptions[0]?document.getElementById('bankAcct').selectedOptions[0].textContent.replace(/^\d+\s/,''):'';
+  const vw=isR?'收':isTransfer?'转':'付';
+  const numStart=parseInt(document.getElementById('vNumStart').value)||1;
   
   const um=recs.filter(r=>r.mType==='none');
   if(um.length>0&&!confirm('还有'+um.length+'条未匹配记录，辅助核算编码将留空。确定导出？'))return;
   
-  const h1=['录凭证 # gl_voucher','','','','','单据体 # entries'];
-  const h2=['请将鼠标移到灰色标题行查看字段录入要求'];
+  const h1=['录凭证 # gl_voucher','','','','','单据体 # entries','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','',''];
+  const h2=['请将鼠标移到灰色标题行查看字段录入要求','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','',''];
   const h3=['*记账日期： # date','*凭证字号：.名称 # groupid.name','凭证号 # number','附件： # attachments','备注： # remark','摘要 # explanation','*科目.编码 # account.number','科目.名称 # account.name','数量 # quantity','单位.名称 # measureunit.name','单价 # price','*币别.编码 # currency.number','币别.名称 # currency.name','*汇率 # exchangerate','原币金额 # amountfor','借方 # debitamount','贷方 # creditamount','辅助核算.客户.编码 # detailid.number','辅助核算.客户.名称 # detailid.name','辅助核算.供应商.编码 # detailid.number','辅助核算.供应商.名称 # detailid.name','辅助核算.部门.编码 # detailid.number','辅助核算.部门.名称 # detailid.name','辅助核算.职员.编码 # detailid.number','辅助核算.职员.名称 # detailid.name','辅助核算.商品.编码 # detailid.number','辅助核算.商品.名称 # detailid.name','辅助核算.仓库.编码 # detailid.number','辅助核算.仓库.名称 # detailid.name','辅助核算.品牌.编码 # detailid.number','辅助核算.品牌.名称 # detailid.name','辅助核算.收入类别.编码 # detailid.number','辅助核算.收入类别.名称 # detailid.name','辅助核算.支出类别.编码 # detailid.number','辅助核算.支出类别.名称 # detailid.name','辅助核算.账户.编码 # detailid.number','辅助核算.账户.名称 # detailid.number'];
   
-  const rows=[];let vn=1;
+  const rows=[];let vn=numStart;
   for(let r of recs){
     const dt=r.date;
     // 生成摘要：xxxx年xx月xx日xx账户收到/付给xxxxxx货款xxxx元
@@ -825,18 +890,20 @@ function doExport(){
     const smr=yr+'年'+mn+'月'+dy+'日'+bkN+action+party+bizType+r.amount+'元';
     const smrS=smr.substring(0,60);
     
-    // 借方行
+    // 借方行（银行/现金行）
     const dr=new Array(37).fill('');
     dr[0]=dt;dr[1]=vw;dr[2]=vn;dr[5]=smrS;dr[6]=bkC;dr[7]=bkN;dr[11]='CNY';dr[13]=1;
-    dr[isR?15:16]=r.amount;
+    if(isR){dr[15]=r.amount;dr[16]='';}else{dr[15]='';dr[16]=r.amount;}
     rows.push(dr);
     
-    // 贷方行
+    // 贷方行（对方科目行）
     const cr=new Array(37).fill('');
     cr[0]=dt;cr[1]=vw;cr[2]=vn;cr[5]=smrS;cr[6]=r.acctC;cr[7]=r.acctN;cr[11]='CNY';cr[13]=1;
-    cr[isR?16:15]=r.amount;
-    if(r.auxType==='customer'&&r.mCode){cr[17]=r.mCode;cr[18]=r.mName}
-    else if(r.auxType==='supplier'&&r.mCode){cr[19]=r.mCode;cr[20]=r.mName}
+    if(isR){cr[15]='';cr[16]=r.amount;}else{cr[15]=r.amount;cr[16]='';}
+    // 辅助核算：贷方行（对方科目行）挂辅助核算，借方行（银行行）不挂
+    if(r.auxType==='customer'&&r.mCode){cr[17]=r.mCode;cr[18]=r.mName;}
+    else if(r.auxType==='supplier'&&r.mCode){cr[19]=r.mCode;cr[20]=r.mName;}
+    else if(r.auxType==='staff'&&r.mCode){cr[23]=r.mCode;cr[24]=r.mName;}
     rows.push(cr);
     vn++;
   }
