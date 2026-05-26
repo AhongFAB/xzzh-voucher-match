@@ -235,22 +235,28 @@ let editIdx=-1;
 
 // === 初始化 ===
 function init(){
-  const s=localStorage.getItem('vmt_data');
+  // 始终以嵌入数据为基础
+  custs=[...E_CUST];
+  supps=[...E_SUPP];
+  accts=[...E_ACCT];
+  // 从localStorage读取用户手动新增的，合并进去
+  const s=localStorage.getItem('vmt_extra');
   if(s){
     try{
       const d=JSON.parse(s);
-      const lsCusts=d.c||[],lsSupps=d.s||[],lsAccts=d.a||[];
-      // 如果localStorage数据比嵌入数据少，说明有更新，强制用嵌入数据
-      if(lsCusts.length<E_CUST.length||lsSupps.length<E_SUPP.length){
-        console.log('检测到新版本数据，更新缓存: 客户'+lsCusts.length+'->'+E_CUST.length+', 供应商'+lsSupps.length+'->'+E_SUPP.length);
-        loadEmbed();
-        return;
+      // 合并用户新增的客户（嵌入数据中没有的）
+      for(let c of (d.extraCusts||[])){
+        if(!custs.find(x=>x.code===c.code))custs.push(c);
       }
-      custs=lsCusts;supps=lsSupps;accts=lsAccts;showDone();return;
-    }catch(e){}}
-  loadEmbed();
+      for(let s of (d.extraSupps||[])){
+        if(!supps.find(x=>x.code===s.code))supps.push(s);
+      }
+      console.log('加载用户新增数据: '+((d.extraCusts||[]).length)+'个客户, '+((d.extraSupps||[]).length)+'个供应商');
+    }catch(e){console.error('读取用户数据失败',e)}
+  }
+  showDone();
 }
-function loadEmbed(){custs=[...E_CUST];supps=[...E_SUPP];accts=[...E_ACCT];saveL();showDone();}
+function loadEmbed(){/* 不再需要，init已直接加载嵌入数据 */}
 function saveL(){localStorage.setItem('vmt_data',JSON.stringify({c:custs,s:supps,a:accts}));}
 function showDone(){
   document.getElementById('initUpload').classList.add('hidden');
@@ -261,7 +267,7 @@ function showDone(){
   document.getElementById('sAcct').textContent='科目:'+accts.length;
   document.getElementById('workArea').classList.remove('hidden');
 }
-function resetInit(){if(confirm('确定清除基础数据？')){localStorage.removeItem('vmt_data');document.getElementById('initUpload').classList.remove('hidden');document.getElementById('initDone').classList.add('hidden');document.getElementById('workArea').classList.add('hidden');}}
+function resetInit(){if(confirm('确定清除用户自定义数据？')){localStorage.removeItem('vmt_extra');init();}}
 
 // === 上传基础文件 ===
 const initZ=document.getElementById('initZone'),initFI=document.getElementById('initFI');
