@@ -91,7 +91,7 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 <div class="card-hd"><h2>🔧 基础数据</h2><div id="initSt"></div></div>
 <div class="card-bd" id="initBd">
 <div id="initUpload">
-<p style="margin-bottom:12px;color:var(--text-sec);font-size:13px">上传客户和供应商的基础数据文件，科目已内置无需上传。数据将保存到浏览器，下次无需重新上传。</p>
+<p style="margin-bottom:12px;color:var(--text-sec);font-size:13px">上传客户、供应商和科目的基础数据文件。数据将保存到浏览器，下次无需重新上传。</p>
 <div style="display:flex;gap:12px;flex-wrap:wrap">
 <div style="flex:1;min-width:260px">
 <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-sec)">👤 客户数据 <span id="custStatus" style="color:var(--danger);font-weight:400">未上传</span></div>
@@ -100,6 +100,10 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 <div style="flex:1;min-width:260px">
 <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-sec)">🏭 供应商数据 <span id="suppStatus" style="color:var(--danger);font-weight:400">未上传</span></div>
 <div class="upload-zone" id="suppZone" style="padding:18px"><div class="icon" style="font-size:22px">📄</div><p>点击上传供应商引出列表</p><input type="file" id="suppFI" accept=".xls,.xlsx" style="display:none"></div>
+</div>
+<div style="flex:1;min-width:260px">
+<div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-sec)">📊 科目数据 <span id="acctStatus" style="color:var(--danger);font-weight:400">未上传</span></div>
+<div class="upload-zone" id="acctZone" style="padding:18px"><div class="icon" style="font-size:22px">📄</div><p>点击上传科目引出模板</p><input type="file" id="acctFI" accept=".xls,.xlsx" style="display:none"></div>
 </div>
 </div>
 </div>
@@ -122,7 +126,7 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 <div class="card-bd">
 <div style="display:flex;gap:20px;flex-wrap:wrap">
 <div class="fg" style="margin:0"><label>凭证类型</label><select id="vType" onchange="reMatch()"><option value="receive">收款凭证</option><option value="pay">付款凭证</option></select></div>
-<div class="fg" style="margin:0"><label>银行科目</label><select id="bankAcct"><option value="100206">100206 西藏银行-刘义虎</option><option value="100201">100201 建行北京中路支行</option><option value="100202">100202 工行8810-徐凤霞</option><option value="100203">100203 建行0085-徐凤霞</option><option value="100204">100204 鑫业-建行5035</option><option value="100205">100205 鑫启航-建行</option><option value="1001">1001 现金</option><option value="100901">100901 毕总微信</option></select></div>
+<div class="fg" style="margin:0"><label>银行科目</label><select id="bankAcct"><option value="">-- 请先上传科目数据 --</option></select></div>
 <div class="fg" style="margin:0"><label>默认货款科目</label><select id="defAcct"><option value="1131">1131 应收账款（挂客户）</option><option value="5101">5101 主营业务收入（挂客户）</option><option value="2103">2103 应付账款（挂供应商）</option></select></div>
 </div>
 </div>
@@ -196,7 +200,7 @@ select:focus,input[type=text]:focus{outline:none;border-color:var(--primary);box
 <script>
 // === 嵌入基础数据 ===
 const E_CUST=[];const E_SUPP=[];
-const E_ACCT=[{"code": "1001", "name": "现金", "category": "资产"}, {"code": "1002", "name": "银行存款", "category": "资产"}, {"code": "100201", "name": "中合五金-建行拉萨北京中路支行", "category": "资产"}, {"code": "100202", "name": "工行8810-徐凤霞", "category": "资产"}, {"code": "100203", "name": "建行0085-徐凤霞", "category": "资产"}, {"code": "100204", "name": "鑫业商贸部-建行5035", "category": "资产"}, {"code": "100205", "name": "鑫启航供应链-建行", "category": "资产"}, {"code": "100206", "name": "2176西藏银行-刘义虎", "category": "资产"}, {"code": "1009", "name": "其他货币资金", "category": "资产"}, {"code": "100901", "name": "毕总微信", "category": "资产"}, {"code": "100902", "name": "备用金", "category": "资产"}, {"code": "1131", "name": "应收账款", "category": "资产"}, {"code": "1133", "name": "其他应收款", "category": "资产"}, {"code": "113301", "name": "员工借款", "category": "资产"}, {"code": "113302", "name": "厂房押金", "category": "资产"}, {"code": "113303", "name": "液化气押金", "category": "资产"}, {"code": "113304", "name": "宿舍押金", "category": "资产"}, {"code": "113305", "name": "水桶押金", "category": "资产"}, {"code": "113306", "name": "其他", "category": "资产"}, {"code": "113307", "name": "周成红", "category": "资产"}, {"code": "113308", "name": "刘义虎", "category": "资产"}, {"code": "113309", "name": "米林租房押金", "category": "资产"}, {"code": "113310", "name": "代垫员工房租", "category": "资产"}, {"code": "1151", "name": "预付账款", "category": "资产"}, {"code": "1243", "name": "库存商品", "category": "资产"}, {"code": "124301", "name": "货款", "category": "资产"}, {"code": "124302", "name": "运费", "category": "资产"}, {"code": "1301", "name": "待摊费用", "category": "资产"}, {"code": "130101", "name": "软件使用费", "category": "资产"}, {"code": "130102", "name": "员工宿舍房租", "category": "资产"}, {"code": "130103", "name": "厂房房租", "category": "资产"}, {"code": "130104", "name": "装修费", "category": "资产"}, {"code": "130105", "name": "广告费", "category": "资产"}, {"code": "130106", "name": "米林房租", "category": "资产"}, {"code": "130107", "name": "3.23开业招商会费用", "category": "资产"}, {"code": "1501", "name": "固定资产", "category": "资产"}, {"code": "1502", "name": "累计折旧", "category": "资产"}, {"code": "1806", "name": "待处理财产损益", "category": "资产"}, {"code": "2101", "name": "短期借款", "category": "负债"}, {"code": "210101", "name": "成都汇竞汽车贸易有限公司", "category": "负债"}, {"code": "2103", "name": "应付账款", "category": "负债"}, {"code": "210301", "name": "货款", "category": "负债"}, {"code": "2104", "name": "预收账款", "category": "负债"}, {"code": "2151", "name": "应付工资", "category": "负债"}, {"code": "2171", "name": "应交税金", "category": "负债"}, {"code": "217101", "name": "应交增值税", "category": "负债"}, {"code": "21710102", "name": "已交税金", "category": "负债"}, {"code": "217112", "name": "应交个人所得税", "category": "负债"}, {"code": "2181", "name": "其他应付款", "category": "负债"}, {"code": "218101", "name": "租房押金", "category": "负债"}, {"code": "218102", "name": "借款", "category": "负债"}, {"code": "21810201", "name": "徐凤霞", "category": "负债"}, {"code": "218103", "name": "信天宇软件公司", "category": "负债"}, {"code": "218104", "name": "待核实款项", "category": "负债"}, {"code": "218105", "name": "成都汇竞汽车贸易有限公司", "category": "负债"}, {"code": "218106", "name": "程缸保证金", "category": "负债"}, {"code": "218107", "name": "其他待付款", "category": "负债"}, {"code": "3101", "name": "实收资本", "category": "权益"}, {"code": "310101", "name": "成都集沛商业运营管理有限公司", "category": "权益"}, {"code": "310102", "name": "毕磊", "category": "权益"}, {"code": "310103", "name": "李洪强", "category": "权益"}, {"code": "310104", "name": "刘川", "category": "权益"}, {"code": "310105", "name": "西藏国盈企业管理咨询有限公司", "category": "权益"}, {"code": "3131", "name": "本年利润", "category": "权益"}, {"code": "5401", "name": "主营业务成本", "category": "成本"}, {"code": "5402", "name": "主营业务税金及附加", "category": "成本"}, {"code": "5101", "name": "主营业务收入", "category": "损益"}, {"code": "5301", "name": "营业外收入", "category": "损益"}, {"code": "530101", "name": "罚款", "category": "损益"}, {"code": "530102", "name": "确实无法支付的应付款项", "category": "损益"}, {"code": "530103", "name": "其他收入", "category": "损益"}, {"code": "5501", "name": "销售费用", "category": "损益"}, {"code": "550101", "name": "运费", "category": "损益"}, {"code": "5502", "name": "管理费用", "category": "损益"}, {"code": "550201", "name": "办公费", "category": "损益"}, {"code": "550202", "name": "折旧费", "category": "损益"}, {"code": "550203", "name": "运费", "category": "损益"}, {"code": "550204", "name": "厂房房租", "category": "损益"}, {"code": "550205", "name": "生活费", "category": "损益"}, {"code": "550206", "name": "车辆--油费（禁用）", "category": "损益"}, {"code": "55020601", "name": "油费（禁用）", "category": "损益"}, {"code": "550207", "name": "车辆维修费", "category": "损益"}, {"code": "550208", "name": "车辆保险费", "category": "损益"}, {"code": "550209", "name": "业务招待费", "category": "损益"}, {"code": "550210", "name": "通讯网络费", "category": "损益"}, {"code": "550211", "name": "卸货搬运费", "category": "损益"}, {"code": "550212", "name": "软件费用", "category": "损益"}, {"code": "550213", "name": "宿舍房租", "category": "损益"}, {"code": "550214", "name": "住宿费", "category": "损益"}, {"code": "550215", "name": "叉车加油费", "category": "损益"}, {"code": "550216", "name": "广告宣传费", "category": "损益"}, {"code": "550217", "name": "福利费", "category": "损益"}, {"code": "550218", "name": "停车费", "category": "损益"}, {"code": "550219", "name": "低值易耗品", "category": "损益"}, {"code": "550220", "name": "发票税点", "category": "损益"}, {"code": "550221", "name": "工资", "category": "损益"}, {"code": "550222", "name": "厂家业务费", "category": "损益"}, {"code": "550223", "name": "代理服务费", "category": "损益"}, {"code": "550224", "name": "员工奖励", "category": "损益"}, {"code": "550225", "name": "销售促销费", "category": "损益"}, {"code": "550226", "name": "折扣优惠", "category": "损益"}, {"code": "550227", "name": "社会保险费", "category": "损益"}, {"code": "550228", "name": "公积金", "category": "损益"}, {"code": "550229", "name": "车辆购置税费用", "category": "损益"}, {"code": "550230", "name": "印花税", "category": "损益"}, {"code": "550231", "name": "车辆油费", "category": "损益"}, {"code": "550232", "name": "租车租金", "category": "损益"}, {"code": "550233", "name": "业务费返点", "category": "损益"}, {"code": "550234", "name": "水电费", "category": "损益"}, {"code": "550235", "name": "交通费", "category": "损益"}, {"code": "550236", "name": "差旅费", "category": "损益"}, {"code": "5503", "name": "财务费用", "category": "损益"}, {"code": "550301", "name": "手续费", "category": "损益"}, {"code": "550302", "name": "利息", "category": "损益"}, {"code": "550303", "name": "现金折扣", "category": "损益"}, {"code": "5504", "name": "营业外支出", "category": "损益"}, {"code": "550401", "name": "非常损失", "category": "损益"}];
+const E_ACCT=[];
 
 // 非货款关键词→科目映射
 const NS_MAP=[
@@ -212,7 +216,7 @@ const NS_MAP=[
 ];
 
 // 常用科目
-const ACCTS=[
+let ACCTS=[
   {c:'1131',n:'应收账款',aux:'customer'},
   {c:'5101',n:'主营业务收入',aux:'customer'},
   {c:'2103',n:'应付账款',aux:'supplier'},
@@ -241,31 +245,33 @@ let editIdx=-1;
 
 // === 初始化 ===
 function init(){
-  accts=[...E_ACCT];
   const saved=localStorage.getItem('vmt_cs');
   if(saved){
     try{
       const d=JSON.parse(saved);
       if(d.custs&&d.custs.length>0)custs=d.custs;
       if(d.supps&&d.supps.length>0)supps=d.supps;
+      if(d.accts&&d.accts.length>0){accts=d.accts;buildAcctDropdowns();}
     }catch(e){console.error('读取缓存数据失败',e)}
   }
   updateStatus();
-  if(custs.length>0&&supps.length>0)showDone();
+  if(custs.length>0&&supps.length>0&&accts.length>0)showDone();
 }
-function saveCS(){localStorage.setItem('vmt_cs',JSON.stringify({custs,supps}));}
+function saveCS(){localStorage.setItem('vmt_cs',JSON.stringify({custs,supps,accts}));}
 function updateStatus(){
-  const cs=document.getElementById('custStatus'),ss=document.getElementById('suppStatus');
+  const cs=document.getElementById('custStatus'),ss=document.getElementById('suppStatus'),as=document.getElementById('acctStatus');
   if(custs.length>0){cs.textContent='✓ '+custs.length+'个';cs.style.color='var(--success)';}
   else{cs.textContent='未上传';cs.style.color='var(--danger)';}
   if(supps.length>0){ss.textContent='✓ '+supps.length+'个';ss.style.color='var(--success)';}
   else{ss.textContent='未上传';ss.style.color='var(--danger)';}
+  if(accts.length>0){as.textContent='✓ '+accts.length+'个';as.style.color='var(--success)';}
+  else{as.textContent='未上传';as.style.color='var(--danger)';}
   document.getElementById('sCust').textContent='客户:'+custs.length;
   document.getElementById('sSupp').textContent='供应商:'+supps.length;
   document.getElementById('sAcct').textContent='科目:'+accts.length;
 }
 function showDone(){
-  if(custs.length===0||supps.length===0){
+  if(custs.length===0||supps.length===0||accts.length===0){
     document.getElementById('initUpload').classList.remove('hidden');
     document.getElementById('initDone').classList.add('hidden');
     document.getElementById('workArea').classList.add('hidden');
@@ -278,12 +284,13 @@ function showDone(){
   document.getElementById('workArea').classList.remove('hidden');
 }
 function resetInit(){
-  if(confirm('确定清除客户和供应商数据？')){
+  if(confirm('确定清除所有基础数据？')){
     localStorage.removeItem('vmt_cs');
-    custs=[];supps=[];
+    custs=[];supps=[];accts=[];
     document.getElementById('initUpload').classList.remove('hidden');
     document.getElementById('initDone').classList.add('hidden');
     document.getElementById('workArea').classList.add('hidden');
+    document.getElementById('bankAcct').innerHTML='<option value="">-- 请先上传科目数据 --</option>';
     updateStatus();
   }
 }
@@ -299,6 +306,7 @@ function setupZone(zoneId,fileId,handler){
 }
 setupZone('custZone','custFI',handleCustFile);
 setupZone('suppZone','suppFI',handleSuppFile);
+setupZone('acctZone','acctFI',handleAcctFile);
 
 function parseExcel(file,cb){
   const r=new FileReader();
@@ -345,6 +353,88 @@ function handleSuppFile(file){
   });
 }
 
+
+function handleAcctFile(file){
+  parseExcel(file,data=>{
+    accts=[];
+    for(let i=3;i<data.length;i++){
+      const code=String(data[i][0]||'').trim();
+      const name=String(data[i][1]||'').trim();
+      const category=String(data[i][3]||'').trim();
+      const dc=String(data[i][4]||'').trim();
+      const is_cash=String(data[i][5]||'').trim();
+      const is_bank=String(data[i][6]||'').trim();
+      const is_assist=String(data[i][13]||'').trim();
+      const assist_items=String(data[i][14]||'').trim();
+      const enable=String(data[i][18]||'').trim();
+      if(!code||!name)continue;
+      if(enable==='禁用')continue;
+      let cat=category;
+      if(category.includes('资产'))cat='资产';
+      else if(category.includes('负债'))cat='负债';
+      else if(category.includes('权益'))cat='权益';
+      else if(category.includes('营业成本')||category.includes('成本及税金'))cat='成本';
+      else cat='损益';
+      let aux='none';
+      if(is_assist==='是'){
+        if(assist_items.includes('客户'))aux='customer';
+        else if(assist_items.includes('供应商'))aux='supplier';
+        else if(assist_items.includes('职员'))aux='staff';
+      }
+      accts.push({code,name,category:cat,dc,is_cash:is_cash==='是',is_bank:is_bank==='是',is_assist:is_assist==='是',assist_type:aux});
+    }
+    accts=uniq(accts,a=>a.code);
+    buildAcctDropdowns();
+    saveCS();updateStatus();showDone();
+  });
+}
+
+function buildAcctDropdowns(){
+  // Bank account dropdown - bank + cash + other monetary sub-accounts
+  const bankSel=document.getElementById('bankAcct');
+  bankSel.innerHTML='';
+  accts.filter(a=>a.is_bank).forEach(a=>{
+    const opt=document.createElement('option');
+    opt.value=a.code;opt.textContent=a.code+' '+a.name;
+    bankSel.appendChild(opt);
+  });
+  accts.filter(a=>a.is_cash&&a.code!=='1002').forEach(a=>{
+    const opt=document.createElement('option');
+    opt.value=a.code;opt.textContent=a.code+' '+a.name;
+    bankSel.appendChild(opt);
+  });
+  accts.filter(a=>a.code.startsWith('1009')&&a.code!=='1009').forEach(a=>{
+    const opt=document.createElement('option');
+    opt.value=a.code;opt.textContent=a.code+' '+a.name;
+    bankSel.appendChild(opt);
+  });
+
+  // ACCTS dropdown for 对方科目 - all non-bank/cash parent accounts + non-bank/cash leaf accounts
+  ACCTS=accts.filter(a=>!a.is_bank&&a.code!=='1002'&&a.code!=='1009').map(a=>({
+    c:a.code,
+    n:a.name,
+    aux:a.assist_type
+  }));
+  ACCTS.sort((a,b)=>a.c.localeCompare(b.c));
+}
+
+function autoSelectBank(filename){
+  const bankSel=document.getElementById('bankAcct');
+  if(!bankSel.options.length||bankSel.options.length===1&&!bankSel.options[0].value)return;
+  const fn=filename.toLowerCase();
+  // Try matching bank name from filename to account names
+  const bankNames=['鑫业商贸部','鑫启航','西藏银行','建行','工行','工商','微信','现金'];
+  for(let bn of bankNames){
+    if(fn.includes(bn)){
+      for(let opt of bankSel.options){
+        if(opt.textContent.includes(bn)){bankSel.value=opt.value;return}
+      }
+    }
+  }
+}
+
+function findAcct(code){return accts.find(a=>a.code===code);}
+
 function uniq(a,k){const s=new Set();return a.filter(x=>{const v=k(x);if(s.has(v))return false;s.add(v);return true})}
 
 // === 上传明细 ===
@@ -357,6 +447,7 @@ detFI.onchange=e=>handleDet(e.target.files[0]);
 
 function handleDet(file){
   if(!file)return;
+  autoSelectBank(file.name);
   const r=new FileReader();
   r.onload=e=>{
     const wb=XLSX.read(e.target.result,{type:'array'});
@@ -654,7 +745,7 @@ function confirmAdd(){
     supps.push({code:c,name:n,phones:ph});
     console.log('新增供应商: '+c+' '+n+'，总计'+supps.length+'个');
   }
-  saveL();
+  saveCS();
   const r=recs.find(x=>x.id===editIdx);
   if(r){r.mCode=c;r.mName=n;r.mTarget=t==='customer'?'customer':'supplier';r.mType='manual';r.conf=100;updStats();render()}
   closeAdd();
@@ -819,7 +910,7 @@ function doImport(e){
       const d=JSON.parse(ev.target.result);
       if(d.customers&&d.suppliers){
         custs=d.customers;supps=d.suppliers;if(d.accounts)accts=d.accounts;
-        saveL();showDone();showDataMgr();
+        saveCS();showDone();showDataMgr();
         alert('导入成功！'+custs.length+'个客户，'+supps.length+'个供应商');
       }else{alert('JSON格式不正确')}
     }catch(err){alert('解析JSON失败: '+err.message)}
